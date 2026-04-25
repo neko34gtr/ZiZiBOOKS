@@ -91,7 +91,15 @@
             </Grid>
 
             <Grid Grid.Row="1" Margin="10">
-                <StackPanel x:Name="SemiContainer" Visibility="Visible"/>
+                <Grid>
+                    <StackPanel x:Name="SemiContainer" Visibility="Visible"/>
+                    <Separator x:Name="InsertIndicator" 
+                               Background="Cyan" 
+                               Height="2" 
+                               VerticalAlignment="Top" 
+                               Visibility="Collapsed" 
+                               IsHitTestVisible="False"/>
+                </Grid>
                 <UniformGrid x:Name="MajiContainer" Columns="2" Visibility="Collapsed"/>
             </Grid>
 
@@ -108,9 +116,9 @@
                         <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Foreground="Cyan" FontSize="12" Margin="0,10,0,5"/>
                         <TextBlock Text="名前:" Foreground="White" FontSize="10"/>
                         <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
-                        <TextBlock Text="URL:" Foreground="White" FontSize="10"/>
+                        <TextBlock Text="URL / 実行パス:" Foreground="White" FontSize="10"/>
                         <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
-                        <TextBlock Text="アイコンパス (空ならURLから自動取得):" Foreground="White" FontSize="10"/>
+                        <TextBlock Text="アイコンパス (任意):" Foreground="White" FontSize="10"/>
                         <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
                         <TextBlock Text="メモ:" Foreground="White" FontSize="10"/>
                         <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}"/>
@@ -131,7 +139,7 @@
 
                         <Separator Background="#33FFFFFF" Margin="0,20"/>
                         <Button Content="設定を閉じる" Background="#555555" Foreground="White" Padding="20,8" HorizontalAlignment="Stretch" Cursor="Hand" Click="ConfigButton_Click"/>
-                        
+
                         <StackPanel Orientation="Horizontal" Margin="0,20,0,10">
                             <Button Content="エクスポート" Background="#0078D4" Foreground="White" Padding="10,5" Margin="0,0,10,0" Cursor="Hand" Click="ExportConfig_Click"/>
                             <Button Content="インポート" Background="#0078D4" Foreground="White" Padding="10,5" Cursor="Hand" Click="ImportConfig_Click"/>

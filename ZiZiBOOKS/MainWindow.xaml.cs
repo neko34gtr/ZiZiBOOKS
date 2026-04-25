@@ -15,7 +15,16 @@ namespace ZiZiBOOKS
         private AppSettings _settings;
         private BookmarkDict _dict;
         private bool _isInitialized = false;
-        private int _editingIndex = -1; // 編集中のインデックス
+        private int _editingIndex = -1;
+
+        // 設定画面用ドラッグ変数
+        private Border? _draggedItem = null;
+        private int _draggedIndex = -1;
+
+        // メイン側D&D用の変数
+        private Button? _draggedMainBtn = null;
+        private int _draggedMainIndex = -1;
+        private int _targetInsertIndex = -1;
 
         public MainWindow()
         {
@@ -40,17 +49,114 @@ namespace ZiZiBOOKS
             foreach (var item in _dict.Items)
             {
                 var icon = GetIcon(!string.IsNullOrEmpty(item.IconPath) ? item.IconPath : item.Url);
-                var semiBtn = new Button { Content = item.Name, Tag = icon, Style = (Style)FindResource("SemiModeStyle") };
-                semiBtn.ToolTip = item.Url; // 本来のURLはToolTip等で保持
+
+                // Semi Mode Button
+                var semiBtn = new Button
+                {
+                    Content = item.Name,
+                    Tag = icon,
+                    DataContext = item.Url,
+                    Style = (Style)FindResource("SemiModeStyle")
+                };
+
+                semiBtn.PreviewMouseLeftButtonDown += MainBtn_PreviewMouseLeftButtonDown;
+                semiBtn.PreviewMouseMove += MainBtn_PreviewMouseMove;
+                semiBtn.PreviewMouseLeftButtonUp += MainBtn_PreviewMouseLeftButtonUp;
+
+                semiBtn.ToolTip = item.Url;
                 semiBtn.Click += Launch_Click;
-                // Launch_Click側で使うURLを保持するためにDataContext等も活用検討
-                semiBtn.DataContext = item.Url;
                 SemiContainer.Children.Add(semiBtn);
 
-                var majiBtn = new Button { Content = item.Name, Tag = item.Url, Style = (Style)FindResource("ModernTileButton") };
+                // Maji Mode Button
+                var majiBtn = new Button
+                {
+                    Content = item.Name,
+                    Tag = item.Url,
+                    DataContext = item.Url,
+                    Style = (Style)FindResource("ModernTileButton")
+                };
                 majiBtn.FontSize = _settings.FontSize;
                 majiBtn.Click += Launch_Click;
                 MajiContainer.Children.Add(majiBtn);
+            }
+        }
+
+        // --- メインUI側のドラッグ＆ドロップ処理 ---
+        private void MainBtn_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                _draggedMainBtn = btn;
+                _draggedMainIndex = SemiContainer.Children.IndexOf(btn);
+                _targetInsertIndex = _draggedMainIndex;
+                btn.Opacity = 0.5;
+                btn.CaptureMouse();
+            }
+        }
+
+        private void MainBtn_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_draggedMainBtn == null || !_draggedMainBtn.IsMouseCaptured) return;
+
+            Point mousePos = e.GetPosition(SemiContainer);
+            int newIndex = 0;
+            double accumulatedHeight = 0;
+
+            foreach (FrameworkElement child in SemiContainer.Children)
+            {
+                double childMid = accumulatedHeight + (child.ActualHeight / 2);
+                if (mousePos.Y < childMid) break;
+                accumulatedHeight += child.ActualHeight + child.Margin.Top + child.Margin.Bottom;
+                newIndex++;
+            }
+
+            _targetInsertIndex = Math.Clamp(newIndex, 0, SemiContainer.Children.Count);
+
+            // インジケーター（線）の表示更新
+            InsertIndicator.Visibility = Visibility.Visible;
+
+            double lineY = 0;
+            if (_targetInsertIndex < SemiContainer.Children.Count)
+            {
+                var targetElement = (FrameworkElement)SemiContainer.Children[_targetInsertIndex];
+                lineY = targetElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y - targetElement.Margin.Top;
+            }
+            else if (SemiContainer.Children.Count > 0)
+            {
+                var lastElement = (FrameworkElement)SemiContainer.Children[^1];
+                lineY = lastElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y
+                        + lastElement.ActualHeight + lastElement.Margin.Bottom;
+            }
+
+            InsertIndicator.Margin = new Thickness(0, lineY, 0, 0);
+        }
+
+        private void MainBtn_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_draggedMainBtn != null)
+            {
+                _draggedMainBtn.ReleaseMouseCapture();
+                _draggedMainBtn.Opacity = 1.0;
+                InsertIndicator.Visibility = Visibility.Collapsed;
+
+                int oldIndex = _draggedMainIndex;
+                int newIndex = _targetInsertIndex;
+
+                // 自身の位置より後ろに挿入する場合の補正
+                if (newIndex > oldIndex) newIndex--;
+
+                if (newIndex != oldIndex && newIndex >= 0 && newIndex < _dict.Items.Count)
+                {
+                    var item = _dict.Items[oldIndex];
+                    _dict.Items.RemoveAt(oldIndex);
+                    _dict.Items.Insert(newIndex, item);
+
+                    RefreshUI();
+                    ConfigManager.SaveDict(_dict);
+                }
+
+                _draggedMainBtn = null;
+                _draggedMainIndex = -1;
             }
         }
 
@@ -62,38 +168,42 @@ namespace ZiZiBOOKS
                 var item = _dict.Items[i];
                 var index = i;
 
-                var border = new Border { Background = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)), CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 2, 0, 2), Padding = new Thickness(5) };
-                var grid = new Grid();
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(25) }); // No
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Data
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Ops
+                var border = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)),
+                    CornerRadius = new CornerRadius(4),
+                    Margin = new Thickness(0, 2, 0, 2),
+                    Padding = new Thickness(5),
+                    Tag = index,
+                    Cursor = Cursors.SizeAll
+                };
 
-                // Index No
+                border.MouseLeftButtonDown += Border_MouseLeftButtonDown;
+                border.MouseMove += Border_MouseMove;
+                border.MouseLeftButtonUp += Border_MouseLeftButtonUp;
+                border.MouseEnter += Border_MouseEnter;
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(25) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
                 var txtNo = new TextBlock { Text = (i + 1).ToString(), Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, FontSize = 10 };
                 Grid.SetColumn(txtNo, 0); grid.Children.Add(txtNo);
 
-                // Content
                 var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
                 stack.Children.Add(new TextBlock { Text = item.Name, Foreground = Brushes.White, FontWeight = FontWeights.Bold });
                 stack.Children.Add(new TextBlock { Text = item.Url, Foreground = Brushes.Gray, FontSize = 9 });
                 Grid.SetColumn(stack, 1); grid.Children.Add(stack);
 
-                // Operations
                 var ops = new StackPanel { Orientation = Orientation.Horizontal };
-
-                var btnUp = new Button { Content = "▲", Width = 22, Margin = new Thickness(2, 0, 0, 0), Background = Brushes.Transparent, Foreground = Brushes.White, BorderThickness = new Thickness(0), Cursor = Cursors.Hand };
-                btnUp.Click += (s, e) => MoveItem(index, -1);
-
-                var btnDown = new Button { Content = "▼", Width = 22, Margin = new Thickness(2, 0, 0, 0), Background = Brushes.Transparent, Foreground = Brushes.White, BorderThickness = new Thickness(0), Cursor = Cursors.Hand };
-                btnDown.Click += (s, e) => MoveItem(index, 1);
-
                 var btnEdit = new Button { Content = "編集", Width = 35, Margin = new Thickness(5, 0, 0, 0), Background = Brushes.DarkCyan, Foreground = Brushes.White, FontSize = 10, Cursor = Cursors.Hand };
                 btnEdit.Click += (s, e) => StartEdit(index);
 
                 var btnDel = new Button { Content = "消", Width = 25, Margin = new Thickness(2, 0, 0, 0), Background = Brushes.DarkRed, Foreground = Brushes.White, FontSize = 10, Cursor = Cursors.Hand };
-                btnDel.Click += (s, e) => { _dict.Items.RemoveAt(index); RefreshUI(); };
+                btnDel.Click += (s, e) => { _dict.Items.RemoveAt(index); RefreshUI(); ConfigManager.SaveDict(_dict); };
 
-                ops.Children.Add(btnUp); ops.Children.Add(btnDown); ops.Children.Add(btnEdit); ops.Children.Add(btnDel);
+                ops.Children.Add(btnEdit); ops.Children.Add(btnDel);
                 Grid.SetColumn(ops, 2); grid.Children.Add(ops);
 
                 border.Child = grid;
@@ -101,15 +211,43 @@ namespace ZiZiBOOKS
             }
         }
 
-        private void MoveItem(int idx, int dir)
+        private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            int target = idx + dir;
-            if (target < 0 || target >= _dict.Items.Count) return;
-            var item = _dict.Items[idx];
-            _dict.Items.RemoveAt(idx);
-            _dict.Items.Insert(target, item);
-            RefreshUI();
+            if (sender is Border border)
+            {
+                _draggedItem = border;
+                _draggedIndex = (int)border.Tag;
+                border.Opacity = 0.5;
+                border.CaptureMouse();
+            }
         }
+
+        private void Border_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (_draggedItem != null && sender is Border targetBorder && _draggedItem != targetBorder)
+            {
+                int targetIndex = (int)targetBorder.Tag;
+                var item = _dict.Items[_draggedIndex];
+                _dict.Items.RemoveAt(_draggedIndex);
+                _dict.Items.Insert(targetIndex, item);
+                _draggedIndex = targetIndex;
+                RefreshUI();
+            }
+        }
+
+        private void Border_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_draggedItem != null)
+            {
+                _draggedItem.Opacity = 1.0;
+                _draggedItem.ReleaseMouseCapture();
+                ConfigManager.SaveDict(_dict);
+                _draggedItem = null;
+                _draggedIndex = -1;
+            }
+        }
+
+        private void Border_MouseMove(object sender, MouseEventArgs e) { }
 
         private void StartEdit(int idx)
         {
@@ -136,7 +274,6 @@ namespace ZiZiBOOKS
         private void AddUpdate_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text) || string.IsNullOrWhiteSpace(UrlBox.Text)) return;
-
             var newItem = new BookmarkItem { Name = NameBox.Text, Url = UrlBox.Text, IconPath = IconPathBox.Text, Memo = MemoBox.Text };
 
             if (_editingIndex >= 0)
@@ -149,11 +286,9 @@ namespace ZiZiBOOKS
                 _dict.Items.Add(newItem);
             }
 
-            NameBox.Clear(); UrlBox.Clear(); MemoBox.Clear();
-            EditTitle.Text = "項目の追加 / 編集";
-            EditTitle.Foreground = Brushes.Cyan;
-            CancelEditBtn.Visibility = Visibility.Collapsed;
+            CancelEdit_Click(null!, null!);
             RefreshUI();
+            ConfigManager.SaveDict(_dict);
         }
 
         private void ApplySettingsToFields()
@@ -176,6 +311,7 @@ namespace ZiZiBOOKS
         private void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(FontSizeBox.Text, out int s)) _settings.FontSize = s;
+            ConfigManager.SaveSettings(_settings);
             RefreshUI();
             MessageBox.Show("設定を保存しました");
         }
@@ -193,20 +329,12 @@ namespace ZiZiBOOKS
         {
             try
             {
-
                 if (string.IsNullOrWhiteSpace(path)) return null;
-
-                // Web URLの場合（GoogleのAPIを利用してfaviconを取得）
-                if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                    path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                {
+                if (path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     return new BitmapImage(new Uri($"https://www.google.com/s2/favicons?domain={path}&sz=64"));
-                }
 
-                // ローカルファイルの場合
                 if (!System.IO.File.Exists(path)) return null;
-                using (System.Drawing.Icon? icon = System.Drawing.Icon.ExtractAssociatedIcon(path))
-
+                using (var icon = System.Drawing.Icon.ExtractAssociatedIcon(path))
                 {
                     if (icon == null) return null;
                     return System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(
@@ -215,7 +343,6 @@ namespace ZiZiBOOKS
             }
             catch { return null; }
         }
-
 
         private void TopmostCheck_Changed(object sender, RoutedEventArgs e)
         {
