@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace ZiZiBOOKS
 {
@@ -28,6 +29,10 @@ namespace ZiZiBOOKS
         private int _targetInsertIndex = -1;
         private Point _dragStartPoint;
 
+        // OLED焼き付き防止用変数
+        private DateTime _lastActivityTime = DateTime.Now;
+        private const double ActiveOpacity = 1.0; // アクティブ時の透明度 (100%)
+
         public MainWindow()
         {
             InitializeComponent();
@@ -35,6 +40,45 @@ namespace ZiZiBOOKS
             _dict = ConfigManager.LoadDict();
             RefreshUI();
             _isInitialized = true;
+
+            // 焼き付き防止用の監視ループ
+            CompositionTarget.Rendering += OnRendering;
+        }
+
+        // 毎フレーム呼ばれる処理で不透明度を制御
+        private void OnRendering(object? sender, EventArgs e)
+        {
+            if (!_isInitialized || ConfigPanel.Visibility == Visibility.Visible)
+            {
+                this.Opacity = ActiveOpacity;
+                return;
+            }
+
+            // マウスがウィンドウ内にあるか、ドラッグ中なら操作中とみなす
+            if (this.IsMouseOver || _draggedMainBtn != null || _draggedItem != null)
+            {
+                _lastActivityTime = DateTime.Now;
+            }
+
+            double elapsedSeconds = (DateTime.Now - _lastActivityTime).TotalSeconds;
+            double duration = Math.Max(0.1, _settings.IdleSeconds); // 0除算防止
+            double minOpacity = _settings.IdleOpacity;
+
+            if (elapsedSeconds <= 0)
+            {
+                // 操作されたら即座に、またはふわっと戻す
+                if (this.Opacity < ActiveOpacity)
+                {
+                    this.Opacity = Math.Min(ActiveOpacity, this.Opacity + 0.1);
+                }
+            }
+            else
+            {
+                // 指定秒数かけてリニアに落とすロジック
+                // 計算式：初期値 - (経過秒数 / 合計秒数) * 透明度の変化幅
+                double targetOpacity = ActiveOpacity - (elapsedSeconds / duration) * (ActiveOpacity - minOpacity);
+                this.Opacity = Math.Max(minOpacity, targetOpacity);
+            }
         }
 
         private void RefreshUI()
@@ -85,7 +129,7 @@ namespace ZiZiBOOKS
         {
             if (sender is Button btn)
             {
-                // ここではまだ CaptureMouse しない
+                _lastActivityTime = DateTime.Now; // アクティビティ更新
                 _dragStartPoint = e.GetPosition(this);
                 _draggedMainBtn = btn;
                 _draggedMainIndex = SemiContainer.Children.IndexOf(btn);
@@ -99,10 +143,10 @@ namespace ZiZiBOOKS
 
             if (e.LeftButton == MouseButtonState.Pressed)
             {
+                _lastActivityTime = DateTime.Now; // アクティビティ更新
                 Point currentPos = e.GetPosition(this);
                 Vector diff = _dragStartPoint - currentPos;
 
-                // システム設定の「ドラッグとみなす最小距離」を超えたか判定（意図しないドラッグ開始を防止）
                 if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
                     Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
                 {
@@ -149,6 +193,7 @@ namespace ZiZiBOOKS
         {
             if (_draggedMainBtn != null)
             {
+                _lastActivityTime = DateTime.Now; // アクティビティ更新
                 bool wasCaptured = _draggedMainBtn.IsMouseCaptured;
                 Debug.WriteLine($"[MouseUp] WasCaptured: {wasCaptured}");
 
@@ -158,7 +203,6 @@ namespace ZiZiBOOKS
                     _draggedMainBtn.Opacity = 1.0;
                     InsertIndicator.Visibility = Visibility.Collapsed;
 
-                    // キャプチャされていても移動距離が極小であれば、クリックとして救済するロジック
                     Point upPos = e.GetPosition(this);
                     Vector moveDist = _dragStartPoint - upPos;
                     if (Math.Abs(moveDist.X) < 2 && Math.Abs(moveDist.Y) < 2)
@@ -183,13 +227,10 @@ namespace ZiZiBOOKS
                             ConfigManager.SaveDict(_dict);
                         }
                     }
-
-                    // ドラッグ処理（または救済処理）をした場合はクリックイベントを発生させない
                     e.Handled = true;
                 }
                 else
                 {
-                    // ドラッグしきい値を超えなかった場合は、何もせず Click イベントへ流す
                     Debug.WriteLine("[ClickConfirmed] 通常クリックとして処理");
                 }
 
@@ -253,6 +294,7 @@ namespace ZiZiBOOKS
         {
             if (sender is Border border)
             {
+                _lastActivityTime = DateTime.Now;
                 _draggedItem = border;
                 _draggedIndex = (int)border.Tag;
                 border.Opacity = 0.5;
@@ -264,6 +306,7 @@ namespace ZiZiBOOKS
         {
             if (_draggedItem != null && sender is Border targetBorder && _draggedItem != targetBorder)
             {
+                _lastActivityTime = DateTime.Now;
                 int targetIndex = (int)targetBorder.Tag;
                 var item = _dict.Items[_draggedIndex];
                 _dict.Items.RemoveAt(_draggedIndex);
@@ -277,6 +320,7 @@ namespace ZiZiBOOKS
         {
             if (_draggedItem != null)
             {
+                _lastActivityTime = DateTime.Now;
                 _draggedItem.Opacity = 1.0;
                 _draggedItem.ReleaseMouseCapture();
                 ConfigManager.SaveDict(_dict);
@@ -337,6 +381,11 @@ namespace ZiZiBOOKS
             MajiModeCheck.IsChecked = _settings.IsMajiMode;
             TopmostCheck.IsChecked = _settings.IsTopmost;
             this.Topmost = _settings.IsTopmost;
+
+            // 追加設定項目の反映
+            IdleSecondsBox.Text = _settings.IdleSeconds.ToString();
+            IdleOpacityBox.Text = _settings.IdleOpacity.ToString("0.00");
+
             UpdateUIMode(_settings.IsMajiMode);
         }
 
@@ -349,11 +398,16 @@ namespace ZiZiBOOKS
         private async void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(FontSizeBox.Text, out int s)) _settings.FontSize = s;
+
+            // 追加設定項目の取得とバリデーション
+            if (int.TryParse(IdleSecondsBox.Text, out int sec)) _settings.IdleSeconds = sec;
+            if (double.TryParse(IdleOpacityBox.Text, out double op)) _settings.IdleOpacity = Math.Clamp(op, 0.01, 1.0);
+
             ConfigManager.SaveSettings(_settings);
             RefreshUI();
 
-            // クールな反応: 一瞬だけ半透明にして戻す
-            double originalOpacity = this.Opacity;
+            _lastActivityTime = DateTime.Now;
+            double originalOpacity = ActiveOpacity;
             this.Opacity = 0.5;
             await Task.Delay(100);
             this.Opacity = originalOpacity;
@@ -363,6 +417,7 @@ namespace ZiZiBOOKS
         {
             if (sender is Button b && b.DataContext is string u)
             {
+                _lastActivityTime = DateTime.Now;
                 Debug.WriteLine($"[Launch_Click] URL: {u}");
                 try
                 {

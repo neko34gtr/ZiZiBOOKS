@@ -16,6 +16,8 @@ namespace ZiZiBOOKS
         public bool IsTopmost { get; set; } = false;
         public int FontSize { get; set; } = 16;
         public int Padding { get; set; } = 10;
+        public int IdleSeconds { get; set; } = 5;      // 放置秒数
+        public double IdleOpacity { get; set; } = 0.02; // 放置時の不透明度
     }
 
     public class BookmarkDict
@@ -36,7 +38,6 @@ namespace ZiZiBOOKS
         private static readonly string JsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ZiZiBOOKS.json");
         private static readonly string DictPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ZiZiBOOKS.dict");
 
-        // 漢字をエスケープせずにシリアライズするための共通オプション
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
             Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
