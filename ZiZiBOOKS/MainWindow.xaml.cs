@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using System.Threading.Tasks;
 
 namespace ZiZiBOOKS
 {
@@ -25,6 +26,7 @@ namespace ZiZiBOOKS
         private Button? _draggedMainBtn = null;
         private int _draggedMainIndex = -1;
         private int _targetInsertIndex = -1;
+        private Point _dragStartPoint;
 
         public MainWindow()
         {
@@ -50,7 +52,6 @@ namespace ZiZiBOOKS
             {
                 var icon = GetIcon(!string.IsNullOrEmpty(item.IconPath) ? item.IconPath : item.Url);
 
-                // Semi Mode Button
                 var semiBtn = new Button
                 {
                     Content = item.Name,
@@ -67,7 +68,6 @@ namespace ZiZiBOOKS
                 semiBtn.Click += Launch_Click;
                 SemiContainer.Children.Add(semiBtn);
 
-                // Maji Mode Button
                 var majiBtn = new Button
                 {
                     Content = item.Name,
@@ -81,78 +81,116 @@ namespace ZiZiBOOKS
             }
         }
 
-        // --- メインUI側のドラッグ＆ドロップ処理 ---
         private void MainBtn_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is Button btn)
             {
+                // ここではまだ CaptureMouse しない
+                _dragStartPoint = e.GetPosition(this);
                 _draggedMainBtn = btn;
                 _draggedMainIndex = SemiContainer.Children.IndexOf(btn);
-                _targetInsertIndex = _draggedMainIndex;
-                btn.Opacity = 0.5;
-                btn.CaptureMouse();
+                Debug.WriteLine($"[MouseDown] {btn.Content} at {_dragStartPoint}");
             }
         }
 
         private void MainBtn_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (_draggedMainBtn == null || !_draggedMainBtn.IsMouseCaptured) return;
+            if (_draggedMainBtn == null) return;
 
-            Point mousePos = e.GetPosition(SemiContainer);
-            int newIndex = 0;
-            double accumulatedHeight = 0;
-
-            foreach (FrameworkElement child in SemiContainer.Children)
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
-                double childMid = accumulatedHeight + (child.ActualHeight / 2);
-                if (mousePos.Y < childMid) break;
-                accumulatedHeight += child.ActualHeight + child.Margin.Top + child.Margin.Bottom;
-                newIndex++;
+                Point currentPos = e.GetPosition(this);
+                Vector diff = _dragStartPoint - currentPos;
+
+                // システム設定の「ドラッグとみなす最小距離」を超えたか判定（意図しないドラッグ開始を防止）
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    if (!_draggedMainBtn.IsMouseCaptured)
+                    {
+                        Debug.WriteLine("[DragStarted] しきい値を超えたためドラッグを開始");
+                        _draggedMainBtn.CaptureMouse();
+                        _draggedMainBtn.Opacity = 0.5;
+                    }
+
+                    Point mousePos = e.GetPosition(SemiContainer);
+                    int newIndex = 0;
+                    double accumulatedHeight = 0;
+
+                    foreach (FrameworkElement child in SemiContainer.Children)
+                    {
+                        double childMid = accumulatedHeight + (child.ActualHeight / 2);
+                        if (mousePos.Y < childMid) break;
+                        accumulatedHeight += child.ActualHeight + child.Margin.Top + child.Margin.Bottom;
+                        newIndex++;
+                    }
+
+                    _targetInsertIndex = Math.Clamp(newIndex, 0, SemiContainer.Children.Count);
+
+                    InsertIndicator.Visibility = Visibility.Visible;
+                    double lineY = 0;
+                    if (_targetInsertIndex < SemiContainer.Children.Count)
+                    {
+                        var targetElement = (FrameworkElement)SemiContainer.Children[_targetInsertIndex];
+                        lineY = targetElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y - targetElement.Margin.Top;
+                    }
+                    else if (SemiContainer.Children.Count > 0)
+                    {
+                        var lastElement = (FrameworkElement)SemiContainer.Children[^1];
+                        lineY = lastElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y
+                                + lastElement.ActualHeight + lastElement.Margin.Bottom;
+                    }
+                    InsertIndicator.Margin = new Thickness(0, lineY, 0, 0);
+                }
             }
-
-            _targetInsertIndex = Math.Clamp(newIndex, 0, SemiContainer.Children.Count);
-
-            // インジケーター（線）の表示更新
-            InsertIndicator.Visibility = Visibility.Visible;
-
-            double lineY = 0;
-            if (_targetInsertIndex < SemiContainer.Children.Count)
-            {
-                var targetElement = (FrameworkElement)SemiContainer.Children[_targetInsertIndex];
-                lineY = targetElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y - targetElement.Margin.Top;
-            }
-            else if (SemiContainer.Children.Count > 0)
-            {
-                var lastElement = (FrameworkElement)SemiContainer.Children[^1];
-                lineY = lastElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y
-                        + lastElement.ActualHeight + lastElement.Margin.Bottom;
-            }
-
-            InsertIndicator.Margin = new Thickness(0, lineY, 0, 0);
         }
 
         private void MainBtn_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (_draggedMainBtn != null)
             {
-                _draggedMainBtn.ReleaseMouseCapture();
-                _draggedMainBtn.Opacity = 1.0;
-                InsertIndicator.Visibility = Visibility.Collapsed;
+                bool wasCaptured = _draggedMainBtn.IsMouseCaptured;
+                Debug.WriteLine($"[MouseUp] WasCaptured: {wasCaptured}");
 
-                int oldIndex = _draggedMainIndex;
-                int newIndex = _targetInsertIndex;
-
-                // 自身の位置より後ろに挿入する場合の補正
-                if (newIndex > oldIndex) newIndex--;
-
-                if (newIndex != oldIndex && newIndex >= 0 && newIndex < _dict.Items.Count)
+                if (wasCaptured)
                 {
-                    var item = _dict.Items[oldIndex];
-                    _dict.Items.RemoveAt(oldIndex);
-                    _dict.Items.Insert(newIndex, item);
+                    _draggedMainBtn.ReleaseMouseCapture();
+                    _draggedMainBtn.Opacity = 1.0;
+                    InsertIndicator.Visibility = Visibility.Collapsed;
 
-                    RefreshUI();
-                    ConfigManager.SaveDict(_dict);
+                    // キャプチャされていても移動距離が極小であれば、クリックとして救済するロジック
+                    Point upPos = e.GetPosition(this);
+                    Vector moveDist = _dragStartPoint - upPos;
+                    if (Math.Abs(moveDist.X) < 2 && Math.Abs(moveDist.Y) < 2)
+                    {
+                        Debug.WriteLine("[Rescue] キャプチャされましたが移動がないためクリックとして処理します");
+                        Launch_Click(_draggedMainBtn, e);
+                    }
+                    else
+                    {
+                        int oldIndex = _draggedMainIndex;
+                        int newIndex = _targetInsertIndex;
+                        if (newIndex > oldIndex) newIndex--;
+
+                        if (newIndex != oldIndex && newIndex >= 0 && newIndex < _dict.Items.Count)
+                        {
+                            Debug.WriteLine($"[Rearrange] {oldIndex} -> {newIndex}");
+                            var item = _dict.Items[oldIndex];
+                            _dict.Items.RemoveAt(oldIndex);
+                            _dict.Items.Insert(newIndex, item);
+
+                            RefreshUI();
+                            ConfigManager.SaveDict(_dict);
+                        }
+                    }
+
+                    // ドラッグ処理（または救済処理）をした場合はクリックイベントを発生させない
+                    e.Handled = true;
+                }
+                else
+                {
+                    // ドラッグしきい値を超えなかった場合は、何もせず Click イベントへ流す
+                    Debug.WriteLine("[ClickConfirmed] 通常クリックとして処理");
                 }
 
                 _draggedMainBtn = null;
@@ -308,20 +346,33 @@ namespace ZiZiBOOKS
             MajiContainer.Visibility = isMaji ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void SaveSettings_Click(object sender, RoutedEventArgs e)
+        private async void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(FontSizeBox.Text, out int s)) _settings.FontSize = s;
             ConfigManager.SaveSettings(_settings);
             RefreshUI();
-            MessageBox.Show("設定を保存しました");
+
+            // クールな反応: 一瞬だけ半透明にして戻す
+            double originalOpacity = this.Opacity;
+            this.Opacity = 0.5;
+            await Task.Delay(100);
+            this.Opacity = originalOpacity;
         }
 
         private void Launch_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button b && b.DataContext is string u)
             {
-                try { Process.Start(new ProcessStartInfo { FileName = u, UseShellExecute = true }); }
-                catch (Exception ex) { MessageBox.Show(ex.Message); }
+                Debug.WriteLine($"[Launch_Click] URL: {u}");
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = u, UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Launch_Error] {ex.Message}");
+                    MessageBox.Show(ex.Message);
+                }
             }
         }
 
