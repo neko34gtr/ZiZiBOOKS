@@ -455,7 +455,6 @@ namespace ZiZiBOOKS
                 try
                 {
                     var psi = new ProcessStartInfo { FileName = u, UseShellExecute = true };
-                    //Process.Start(new ProcessStartInfo { FileName = u, UseShellExecute = true });
                     // URLではなくローカルのファイルパス(.exeなど)の場合、その親フォルダを作業パスに設定
                     if (System.IO.File.Exists(u))
                     {
@@ -499,11 +498,37 @@ namespace ZiZiBOOKS
 
         private void ConfigButton_Click(object sender, RoutedEventArgs e) => ConfigPanel.Visibility = (ConfigPanel.Visibility == Visibility.Visible) ? Visibility.Collapsed : Visibility.Visible;
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) { if (e.ChangedButton == MouseButton.Left) try { DragMove(); } catch { } }
-        private void ExportConfig_Click(object sender, RoutedEventArgs e) { var s = new SaveFileDialog { Filter = "dict|*.dict" }; if (s.ShowDialog() == true) ConfigManager.SaveDict(_dict); }
-        private void ImportConfig_Click(object sender, RoutedEventArgs e) { var o = new OpenFileDialog { Filter = "dict|*.dict" }; if (o.ShowDialog() == true) { _dict = ConfigManager.LoadDict(); RefreshUI(); } }
+        //private void ExportConfig_Click(object sender, RoutedEventArgs e) { var s = new SaveFileDialog { Filter = "dict|*.dict" }; if (s.ShowDialog() == true) ConfigManager.SaveDict(_dict); }
+        private void ExportConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var s = new SaveFileDialog { Filter = "Bookmark Dictionary (*.dict)|*.dict", FileName = "ZiZiBOOKS.dict" };
+            if (s.ShowDialog() == true)
+            {
+                // 指定されたファイルパスへ現在の _dict を保存する
+                ConfigManager.SaveDictToPath(_dict, s.FileName);
+            }
+        }
+        //private void ImportConfig_Click(object sender, RoutedEventArgs e) { var o = new OpenFileDialog { Filter = "dict|*.dict" }; if (o.ShowDialog() == true) { _dict = ConfigManager.LoadDict(); RefreshUI(); } }
+        private void ImportConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var o = new OpenFileDialog { Filter = "Bookmark Dictionary (*.dict)|*.dict" };
+            if (o.ShowDialog() == true)
+            {
+                // 指定されたファイルからロードし、現在の _dict を差し替える
+                var imported = ConfigManager.LoadDictFromPath(o.FileName);
+                if (imported != null)
+                {
+                    _dict = imported;
+                    RefreshUI();
+                    // アプリケーション既定の保存先にも反映
+                    ConfigManager.SaveDict(_dict);
+                }
+            }
+        }
+
         private void MajiModeCheck_Changed(object sender, RoutedEventArgs e) { if (_isInitialized) { _settings.IsMajiMode = MajiModeCheck.IsChecked ?? false; UpdateUIMode(_settings.IsMajiMode); } }
         private void Window_LocationChanged(object sender, EventArgs e) { if (_isInitialized) { _settings.Top = Top; _settings.Left = Left; } }
-        //private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e) { ConfigManager.SaveSettings(_settings); ConfigManager.SaveDict(_dict); }
+
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             // 最小化（Iconic）状態のときは座標を更新しない

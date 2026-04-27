@@ -69,18 +69,33 @@ namespace ZiZiBOOKS
             catch { }
         }
 
-        public static BookmarkDict LoadDict()
+        public static void SaveDictToPath(BookmarkDict dict, string path)
         {
             try
             {
-                if (File.Exists(DictPath))
+                string json = JsonSerializer.Serialize(dict, JsonOptions);
+                File.WriteAllText(path, json, new UTF8Encoding(false));
+            }
+            catch { }
+        }
+
+        public static BookmarkDict LoadDict()
+        {
+            return LoadDictFromPath(DictPath) ?? GetDefaultDict();
+        }
+
+        public static BookmarkDict? LoadDictFromPath(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
                 {
-                    string json = File.ReadAllText(DictPath, Encoding.UTF8);
-                    return JsonSerializer.Deserialize<BookmarkDict>(json) ?? GetDefaultDict();
+                    string json = File.ReadAllText(path, Encoding.UTF8);
+                    return JsonSerializer.Deserialize<BookmarkDict>(json);
                 }
             }
             catch { }
-            return GetDefaultDict();
+            return null;
         }
 
         public static void SaveDict(BookmarkDict dict)
