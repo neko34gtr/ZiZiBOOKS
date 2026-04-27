@@ -366,6 +366,53 @@ namespace ZiZiBOOKS
             CancelEditBtn.Visibility = Visibility.Visible;
         }
 
+        private void EditArea_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("UniformResourceLocator") || e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+            }
+        }
+
+        private void EditArea_Drop(object sender, DragEventArgs e)
+        {
+            try
+            {
+                // URLドロップの処理
+                if (e.Data.GetDataPresent("UniformResourceLocator"))
+                {
+                    var stream = e.Data.GetData("UniformResourceLocator") as System.IO.MemoryStream;
+                    if (stream != null)
+                    {
+                        byte[] data = stream.ToArray();
+                        string url = System.Text.Encoding.UTF8.GetString(data).Split('\0')[0];
+                        UrlBox.Text = url;
+
+                        if (e.Data.GetDataPresent(DataFormats.Text))
+                        {
+                            string title = e.Data.GetData(DataFormats.Text)?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(title) && title != url) NameBox.Text = title;
+                        }
+                    }
+                }
+                // ファイルドロップの処理
+                else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    if (files != null && files.Length > 0)
+                    {
+                        UrlBox.Text = files[0];
+                        NameBox.Text = System.IO.Path.GetFileNameWithoutExtension(files[0]);
+                        IconPathBox.Text = files[0];
+                    }
+                }
+
+            }
+            catch { }
+            _lastActivityTime = DateTime.Now;
+        }
+
         private void CancelEdit_Click(object sender, RoutedEventArgs e)
         {
             _editingIndex = -1;
