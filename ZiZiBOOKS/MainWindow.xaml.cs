@@ -38,11 +38,33 @@ namespace ZiZiBOOKS
             InitializeComponent();
             _settings = ConfigManager.LoadSettings();
             _dict = ConfigManager.LoadDict();
+
+            // 座標の補正ロジックを追加
+            CheckAndFixWindowPosition();
+
             RefreshUI();
             _isInitialized = true;
 
             // 焼き付き防止用の監視ループ
             CompositionTarget.Rendering += OnRendering;
+        }
+
+        private void CheckAndFixWindowPosition()
+        {
+            double screenWidth = SystemParameters.WorkArea.Width;
+            double screenHight = SystemParameters.WorkArea.Height;
+            // 値がNan、または画面外(-32000など)の異常値かチェック
+            bool isInvalid = double.IsNaN(_settings.top) || double.IsNaN(_settings.left) || _settings.Top < -10000 || _settings.Top > 20000 || _settings.Left < -10000 || _settings.Left > 20000;
+            if (isInvalid)
+            {
+                // 画面中央付近に初期配置(例: 幅300,高さ400と仮定して計算)
+                // 実際にはRefreshUIでSizeToContentが走るので大まかな位置でOK
+                _settings.Left = (screenWidth - 300) / 2;
+                _settings.Top = (screenHight - 400) / 2;
+            }
+            // ウィンドウに値を反映
+            this.Left = _settings.Left;
+            this.Top = _settings.Top;
         }
 
         // 毎フレーム呼ばれる処理で不透明度を制御
@@ -421,7 +443,14 @@ namespace ZiZiBOOKS
                 Debug.WriteLine($"[Launch_Click] URL: {u}");
                 try
                 {
-                    Process.Start(new ProcessStartInfo { FileName = u, UseShellExecute = true });
+                    var psi = new ProcessStartInfo { FileName = u, UseShellExecute = true };
+                    //Process.Start(new ProcessStartInfo { FileName = u, UseShellExecute = true });
+                    // URLではなくローカルのファイルパス(.exeなど)の場合、その親フォルダを作業パスに設定
+                    if (System.IO.File.Exists(u))
+                    {
+                        psi.WorkingDirectory = System.IO.Path.GetDirectoryName(u);
+                    }
+                    Process.Start(psi);
                 }
                 catch (Exception ex)
                 {

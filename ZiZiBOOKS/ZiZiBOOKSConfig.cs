@@ -10,8 +10,9 @@ namespace ZiZiBOOKS
 {
     public class AppSettings
     {
-        public double Top { get; set; } = 100;
-        public double Left { get; set; } = 100;
+        // 初期値をdouble.NaNにしておき、読込み時に判定しやすくする
+        public double Top { get; set; } = double.NaN;
+        public double Left { get; set; } = double.NaN;
         public bool IsMajiMode { get; set; } = false;
         public bool IsTopmost { get; set; } = false;
         public int FontSize { get; set; } = 16;
