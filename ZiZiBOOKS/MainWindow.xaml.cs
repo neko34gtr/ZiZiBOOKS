@@ -54,7 +54,7 @@ namespace ZiZiBOOKS
             double screenWidth = SystemParameters.WorkArea.Width;
             double screenHight = SystemParameters.WorkArea.Height;
             // 値がNan、または画面外(-32000など)の異常値かチェック
-            bool isInvalid = double.IsNaN(_settings.top) || double.IsNaN(_settings.left) || _settings.Top < -10000 || _settings.Top > 20000 || _settings.Left < -10000 || _settings.Left > 20000;
+            bool isInvalid = double.IsNaN(_settings.Top) || double.IsNaN(_settings.Left) || _settings.Top < -10000 || _settings.Top > 20000 || _settings.Left < -10000 || _settings.Left > 20000;
             if (isInvalid)
             {
                 // 画面中央付近に初期配置(例: 幅300,高さ400と仮定して計算)
@@ -492,7 +492,18 @@ namespace ZiZiBOOKS
         private void ImportConfig_Click(object sender, RoutedEventArgs e) { var o = new OpenFileDialog { Filter = "dict|*.dict" }; if (o.ShowDialog() == true) { _dict = ConfigManager.LoadDict(); RefreshUI(); } }
         private void MajiModeCheck_Changed(object sender, RoutedEventArgs e) { if (_isInitialized) { _settings.IsMajiMode = MajiModeCheck.IsChecked ?? false; UpdateUIMode(_settings.IsMajiMode); } }
         private void Window_LocationChanged(object sender, EventArgs e) { if (_isInitialized) { _settings.Top = Top; _settings.Left = Left; } }
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e) { ConfigManager.SaveSettings(_settings); ConfigManager.SaveDict(_dict); }
+        //private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e) { ConfigManager.SaveSettings(_settings); ConfigManager.SaveDict(_dict); }
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // 最小化（Iconic）状態のときは座標を更新しない
+            if (this.WindowState == WindowState.Normal)
+            {
+                _settings.Top = this.Top;
+                _settings.Left = this.Left;
+            }
+            ConfigManager.SaveSettings(_settings);
+            ConfigManager.SaveDict(_dict);
+        }
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
     }
 }
