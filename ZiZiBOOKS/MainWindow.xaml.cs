@@ -419,7 +419,18 @@ namespace ZiZiBOOKS
 
         private async void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
-            if (int.TryParse(FontSizeBox.Text, out int s)) _settings.FontSize = s;
+            if (int.TryParse(FontSizeBox.Text, out int fs))
+            {
+                // 16px〜48pxの範囲外は許容しない（クランプ処理）
+                _settings.FontSize = Math.Max(16, Math.Min(fs, 48));
+                // 補正された値をテキストボックスに書き戻す
+                FontSizeBox.Text = _settings.FontSize.ToString();
+            }
+            else
+            {
+                // 数値以外が入力された場合はデフォルトの16pxを適用
+                _settings.FontSize = 16;
+            }
 
             // 追加設定項目の取得とバリデーション
             if (int.TryParse(IdleSecondsBox.Text, out int sec)) _settings.IdleSeconds = sec;
