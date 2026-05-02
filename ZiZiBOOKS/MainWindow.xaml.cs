@@ -33,6 +33,10 @@ namespace ZiZiBOOKS
         private DateTime _lastActivityTime = DateTime.Now;
         private const double ActiveOpacity = 1.0; // アクティブ時の透明度 (100%)
 
+        // メインUI位置保持用の変数
+        private double _originalLeft;
+        private double _originalTop;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -543,7 +547,102 @@ namespace ZiZiBOOKS
             this.Topmost = _settings.IsTopmost;
         }
 
-        private void ConfigButton_Click(object sender, RoutedEventArgs e) => ConfigPanel.Visibility = (ConfigPanel.Visibility == Visibility.Visible) ? Visibility.Collapsed : Visibility.Visible;
+        //private void ConfigButton_Click(object sender, RoutedEventArgs e) => ConfigPanel.Visibility = (ConfigPanel.Visibility == Visibility.Visible) ? Visibility.Collapsed : Visibility.Visible;
+
+        private void ConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConfigPanel.Visibility == Visibility.Collapsed)
+            {
+                // 1. 現在の位置を記憶
+                _originalLeft = this.Left;
+                _originalTop = this.Top;
+
+                // 2. 設定パネルを表示
+                ConfigPanel.Visibility = Visibility.Visible;
+                SemiContainer.Visibility = Visibility.Collapsed;
+                MajiContainer.Visibility = Visibility.Collapsed;
+
+                // 3. レイアウトを更新して展開後のサイズを確定
+                this.UpdateLayout();
+
+                // 4. モニターの右端からはみ出す場合は、収まる位置まで左に寄せる
+                var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                var screenRect = GetCurrentMonitorWorkArea(hWnd: handle); // 前述のWin32版ヘルパーを使用
+
+                double currentRight = this.Left + this.ActualWidth;
+                if (currentRight > screenRect.Right)
+                {
+                    this.Left = screenRect.Right - this.ActualWidth - 10;
+                }
+            }
+            else
+            {
+                // 5. 設定画面を閉じる
+                ConfigPanel.Visibility = Visibility.Collapsed;
+
+                // 6. 記憶していた元の位置に戻す
+                this.Left = _originalLeft;
+                this.Top = _originalTop;
+
+                // 7. モードに合わせて表示を復元
+                if (MajiModeCheck.IsChecked == true)
+                {
+                    MajiContainer.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    SemiContainer.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        #region Win32 API for Monitor Detection (No Windows.Forms)
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
+
+        private Rect GetCurrentMonitorWorkArea(IntPtr hWnd)
+        {
+            IntPtr hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO mi = new MONITORINFO();
+            mi.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(mi);
+
+            if (GetMonitorInfo(hMonitor, ref mi))
+            {
+                // DPIスケーリングの取得
+                var source = PresentationSource.FromVisual(this);
+                double dpiScale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+
+                // Win32の物理ピクセルをWPFの論理ピクセルに変換
+                return new Rect(
+                    mi.rcWork.Left / dpiScale,
+                    mi.rcWork.Top / dpiScale,
+                    (mi.rcWork.Right - mi.rcWork.Left) / dpiScale,
+                    (mi.rcWork.Bottom - mi.rcWork.Top) / dpiScale
+                );
+            }
+            return SystemParameters.WorkArea;
+        }
+
+        #endregion
+
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) { if (e.ChangedButton == MouseButton.Left) try { DragMove(); } catch { } }
         //private void ExportConfig_Click(object sender, RoutedEventArgs e) { var s = new SaveFileDialog { Filter = "dict|*.dict" }; if (s.ShowDialog() == true) ConfigManager.SaveDict(_dict); }
         private void ExportConfig_Click(object sender, RoutedEventArgs e)
