@@ -92,7 +92,9 @@
 
             <Grid Grid.Row="1" Margin="10">
                 <Grid>
-                    <StackPanel x:Name="SemiContainer" Visibility="Visible"/>
+                    <ScrollViewer x:Name="MainScrollViewer" VerticalScrollBarVisibility="Hidden" CanContentScroll="False">
+                        <StackPanel x:Name="SemiContainer" Visibility="Visible"/>
+                    </ScrollViewer>
                     <Separator x:Name="InsertIndicator" 
                                Background="Cyan" 
                                Height="2" 
@@ -103,70 +105,80 @@
                 <UniformGrid x:Name="MajiContainer" Columns="2" Visibility="Collapsed"/>
             </Grid>
 
-            <Grid x:Name="ConfigPanel" Grid.Row="1" Background="#F91E1E1E" Visibility="Collapsed" MinHeight="200">
+            <Grid x:Name="ConfigPanel" Grid.Row="1" Background="#F91E1E1E" Visibility="Collapsed" Width="300">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Margin="15">
-                        <TextBlock Text="ZiZiBOOKS - 設定" Foreground="White" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+                    <ScrollViewer x:Name="ConfigMainScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="15,10">
+                            <TextBlock Text="ZiZiBOOKS - 設定" Foreground="White" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
 
-                        <TextBlock Text="現在のブックマーク" Foreground="Cyan" FontSize="12" Margin="0,10,0,5"/>
-                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15">
-                            <StackPanel x:Name="EditListContainer"/>
-                        </ScrollViewer>
+                            <TextBlock Text="現在のブックマーク" Foreground="Cyan" FontSize="11" Margin="0,5,0,2"/>
+                            <ScrollViewer x:Name="ConfigListScroll" MaxHeight="160" VerticalScrollBarVisibility="Auto" Background="#0AFFFFFF">
+                                <StackPanel x:Name="EditListContainer"/>
+                            </ScrollViewer>
 
-                        <Separator Background="#33FFFFFF" Margin="0,10"/>
+                            <Separator Background="#33FFFFFF" Margin="0,10"/>
 
-                        <StackPanel Background="Transparent" AllowDrop="True" PreviewDragOver="EditArea_DragOver" Drop="EditArea_Drop">
-                            <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Foreground="Cyan" FontSize="12" Margin="0,10,0,5"/>
-                            <TextBlock Text="名前:" Foreground="White" FontSize="10"/>
-                            <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
-                            <TextBlock Text="URL / 実行パス:" Foreground="White" FontSize="10"/>
-                            <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
-                            <TextBlock Text="アイコンパス (任意):" Foreground="White" FontSize="10"/>
-                            <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
-                            <TextBlock Text="メモ:" Foreground="White" FontSize="10"/>
-                            <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}"/>
-                        </StackPanel>
+                            <StackPanel Background="Transparent" AllowDrop="True" PreviewDragOver="EditArea_DragOver" Drop="EditArea_Drop">
+                                <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Foreground="Cyan" FontSize="11" Margin="0,5,0,5"/>
 
-                        <StackPanel Orientation="Horizontal">
-                            <Button x:Name="AddUpdateBtn" Content="追加/更新" Background="#28a745" Foreground="White" Padding="20,5" Cursor="Hand" Click="AddUpdate_Click"/>
-                            <Button x:Name="CancelEditBtn" Content="キャンセル" Background="#666666" Foreground="White" Padding="10,5" Margin="10,0,0,0" Visibility="Collapsed" Cursor="Hand" Click="CancelEdit_Click"/>
-                        </StackPanel>
+                                <TextBlock Text="名前:" Foreground="White" FontSize="10"/>
+                                <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
 
-                        <Separator Background="#33FFFFFF" Margin="0,20"/>
+                                <TextBlock Text="URL / 実行パス:" Foreground="White" FontSize="10"/>
+                                <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
 
-                        <TextBlock Text="表示設定" Foreground="Cyan" FontSize="12" Margin="0,10,0,5"/>
-                        <CheckBox x:Name="MajiModeCheck" Content="まじじぃじぃモード（タイル表示）" Foreground="White" FontSize="12" Margin="0,5" Checked="MajiModeCheck_Changed" Unchecked="MajiModeCheck_Changed"/>
-                        <CheckBox x:Name="TopmostCheck" Content="常に最前面に表示する" Foreground="White" FontSize="12" Margin="0,5" Checked="TopmostCheck_Changed" Unchecked="TopmostCheck_Changed"/>
-                        <TextBlock Text="フォントサイズ (px):" Foreground="White" FontSize="10" Margin="0,10,0,0"/>
-                        <TextBox x:Name="FontSizeBox" Style="{StaticResource ConfigInput}"/>
+                                <TextBlock Text="アイコンパス (任意):" Foreground="White" FontSize="10"/>
+                                <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
 
-                        <TextBlock Text="焼き付き防止設定 (OLED)" Foreground="Yellow" FontSize="12" FontWeight="Bold" Margin="0,15,0,5"/>
-                        <TextBlock Text="フェード完了までの時間:" Foreground="White" FontSize="10"/>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox x:Name="IdleSecondsBox" Width="50" Style="{StaticResource ConfigInput}"/>
-                            <TextBlock Text=" 秒かけて消えていく (0で無効)" Foreground="White" VerticalAlignment="Center" Margin="5,0"/>
-                        </StackPanel>
-                        <TextBlock Text="最小不透明度 (0.01～1.0):" Foreground="White" FontSize="10" Margin="0,5,0,0"/>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox x:Name="IdleOpacityBox" Width="50" Style="{StaticResource ConfigInput}"/>
-                            <TextBlock Text=" ※0.01でほぼ透明" Foreground="Gray" FontSize="9" VerticalAlignment="Center" Margin="5,0"/>
-                        </StackPanel>
-
-                        <Button Content="設定を保存" Background="#28a745" Foreground="White" Padding="20,5" HorizontalAlignment="Left" Margin="0,15,0,0" Cursor="Hand" Click="SaveSettings_Click"/>
-                    </StackPanel>
-
-                    <Border Grid.Row="1" Background="#F91E1E1E" BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0" Padding="15,10">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                                <Button Content="エクスポート" Background="#0078D4" Foreground="White" Padding="10,5" Margin="0,0,10,0" Cursor="Hand" Click="ExportConfig_Click"/>
-                                <Button Content="インポート" Background="#0078D4" Foreground="White" Padding="10,5" Cursor="Hand" Click="ImportConfig_Click"/>
+                                <TextBlock Text="メモ:" Foreground="White" FontSize="10"/>
+                                <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}"/>
                             </StackPanel>
-                            <Button Content="設定を閉じる" Background="#555555" Foreground="White" Padding="20,8" HorizontalAlignment="Stretch" Cursor="Hand" Click="ConfigButton_Click"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button x:Name="AddUpdateBtn" Content="追加/更新" Background="#28a745" Foreground="White" Padding="15,4" Cursor="Hand" Click="AddUpdate_Click"/>
+                                <Button x:Name="CancelEditBtn" Content="キャンセル" Background="#666666" Foreground="White" Padding="10,4" Margin="10,0,0,0" Visibility="Collapsed" Cursor="Hand" Click="CancelEdit_Click"/>
+                            </StackPanel>
+
+                            <Separator Background="#33FFFFFF" Margin="0,10"/>
+
+                            <UniformGrid Columns="2">
+                                <StackPanel Margin="0,0,5,0">
+                                    <TextBlock Text="表示設定" Foreground="Cyan" FontSize="11" Margin="0,0,0,3"/>
+                                    <CheckBox x:Name="MajiModeCheck" Content="タイル表示" Foreground="White" FontSize="10" Margin="0,2" Checked="MajiModeCheck_Changed" Unchecked="MajiModeCheck_Changed"/>
+                                    <CheckBox x:Name="TopmostCheck" Content="最前面" Foreground="White" FontSize="10" Margin="0,2" Checked="TopmostCheck_Changed" Unchecked="TopmostCheck_Changed"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                        <TextBlock Text="字:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="FontSizeBox" Width="30" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Margin="5,0,0,0">
+                                    <TextBlock Text="焼き付き防止" Foreground="Yellow" FontSize="11" FontWeight="Bold" Margin="0,0,0,3"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2">
+                                        <TextBlock Text="秒:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="IdleSecondsBox" Width="30" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2">
+                                        <TextBlock Text="不透明:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="IdleOpacityBox" Width="35" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>
+                                    </StackPanel>
+                                    <Button Content="設定保存" Background="#28a745" Foreground="White" Padding="8,2" HorizontalAlignment="Right" Margin="0,2,0,0" Cursor="Hand" Click="SaveSettings_Click"/>
+                                </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="1" Background="#F91E1E1E" BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0" Padding="10">
+                        <StackPanel>
+                            <UniformGrid Columns="2" Margin="0,0,0,8">
+                                <Button Content="出力" Background="#0078D4" Foreground="White" Padding="5,3" Margin="0,0,4,0" Cursor="Hand" Click="ExportConfig_Click"/>
+                                <Button Content="入力" Background="#0078D4" Foreground="White" Padding="5,3" Margin="4,0,0,0" Cursor="Hand" Click="ImportConfig_Click"/>
+                            </UniformGrid>
+                            <Button Content="設定を閉じる" Background="#555555" Foreground="White" Padding="0,6" HorizontalAlignment="Stretch" Cursor="Hand" Click="ConfigButton_Click"/>
                         </StackPanel>
                     </Border>
                 </Grid>

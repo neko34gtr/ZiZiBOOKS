@@ -9,6 +9,8 @@ using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
 
 namespace ZiZiBOOKS
 {
@@ -43,11 +45,14 @@ namespace ZiZiBOOKS
             _settings = ConfigManager.LoadSettings();
             _dict = ConfigManager.LoadDict();
 
-            // 座標の補正ロジックを追加
+            // 座標の補正ロジック
             CheckAndFixWindowPosition();
 
             RefreshUI();
             _isInitialized = true;
+
+            // 起動時のディスプレイ環境に合わせてサイズ制限を適用
+            UpdateWindowSizeLimit();
 
             // 焼き付き防止用の監視ループ
             CompositionTarget.Rendering += OnRendering;
@@ -57,21 +62,24 @@ namespace ZiZiBOOKS
         {
             double screenWidth = SystemParameters.WorkArea.Width;
             double screenHight = SystemParameters.WorkArea.Height;
-            // 値がNan、または画面外(-32000など)の異常値かチェック
-            bool isInvalid = double.IsNaN(_settings.Top) || double.IsNaN(_settings.Left) || _settings.Top < -10000 || _settings.Top > 20000 || _settings.Left < -10000 || _settings.Left > 20000;
+
+            bool isInvalid = double.IsNaN(_settings.Top) ||
+                             double.IsNaN(_settings.Left) ||
+                             _settings.Top < -10000 ||
+                             _settings.Top > 20000 ||
+                             _settings.Left < -10000 ||
+                             _settings.Left > 20000;
+
             if (isInvalid)
             {
-                // 画面中央付近に初期配置(例: 幅300,高さ400と仮定して計算)
-                // 実際にはRefreshUIでSizeToContentが走るので大まかな位置でOK
                 _settings.Left = (screenWidth - 300) / 2;
                 _settings.Top = (screenHight - 400) / 2;
             }
-            // ウィンドウに値を反映
+
             this.Left = _settings.Left;
             this.Top = _settings.Top;
         }
 
-        // 毎フレーム呼ばれる処理で不透明度を制御
         private void OnRendering(object? sender, EventArgs e)
         {
             if (!_isInitialized || ConfigPanel.Visibility == Visibility.Visible)
@@ -80,19 +88,17 @@ namespace ZiZiBOOKS
                 return;
             }
 
-            // マウスがウィンドウ内にあるか、ドラッグ中なら操作中とみなす
             if (this.IsMouseOver || _draggedMainBtn != null || _draggedItem != null)
             {
                 _lastActivityTime = DateTime.Now;
             }
 
             double elapsedSeconds = (DateTime.Now - _lastActivityTime).TotalSeconds;
-            double duration = Math.Max(0.1, _settings.IdleSeconds); // 0除算防止
+            double duration = Math.Max(0.1, _settings.IdleSeconds);
             double minOpacity = _settings.IdleOpacity;
 
             if (elapsedSeconds <= 0)
             {
-                // 操作されたら即座に、またはふわっと戻す
                 if (this.Opacity < ActiveOpacity)
                 {
                     this.Opacity = Math.Min(ActiveOpacity, this.Opacity + 0.1);
@@ -100,8 +106,6 @@ namespace ZiZiBOOKS
             }
             else
             {
-                // 指定秒数かけてリニアに落とすロジック
-                // 計算式：初期値 - (経過秒数 / 合計秒数) * 透明度の変化幅
                 double targetOpacity = ActiveOpacity - (elapsedSeconds / duration) * (ActiveOpacity - minOpacity);
                 this.Opacity = Math.Max(minOpacity, targetOpacity);
             }
@@ -112,6 +116,9 @@ namespace ZiZiBOOKS
             CreateLauncherButtons();
             CreateEditList();
             ApplySettingsToFields();
+
+            // 項目数変更に合わせて制限を再計算
+            UpdateWindowSizeLimit();
         }
 
         private void CreateLauncherButtons()
@@ -155,11 +162,10 @@ namespace ZiZiBOOKS
         {
             if (sender is Button btn)
             {
-                _lastActivityTime = DateTime.Now; // アクティビティ更新
+                _lastActivityTime = DateTime.Now;
                 _dragStartPoint = e.GetPosition(this);
                 _draggedMainBtn = btn;
                 _draggedMainIndex = SemiContainer.Children.IndexOf(btn);
-                Debug.WriteLine($"[MouseDown] {btn.Content} at {_dragStartPoint}");
             }
         }
 
@@ -169,7 +175,7 @@ namespace ZiZiBOOKS
 
             if (e.LeftButton == MouseButtonState.Pressed)
             {
-                _lastActivityTime = DateTime.Now; // アクティビティ更新
+                _lastActivityTime = DateTime.Now;
                 Point currentPos = e.GetPosition(this);
                 Vector diff = _dragStartPoint - currentPos;
 
@@ -178,7 +184,6 @@ namespace ZiZiBOOKS
                 {
                     if (!_draggedMainBtn.IsMouseCaptured)
                     {
-                        Debug.WriteLine("[DragStarted] しきい値を超えたためドラッグを開始");
                         _draggedMainBtn.CaptureMouse();
                         _draggedMainBtn.Opacity = 0.5;
                     }
@@ -219,9 +224,8 @@ namespace ZiZiBOOKS
         {
             if (_draggedMainBtn != null)
             {
-                _lastActivityTime = DateTime.Now; // アクティビティ更新
+                _lastActivityTime = DateTime.Now;
                 bool wasCaptured = _draggedMainBtn.IsMouseCaptured;
-                Debug.WriteLine($"[MouseUp] WasCaptured: {wasCaptured}");
 
                 if (wasCaptured)
                 {
@@ -233,7 +237,6 @@ namespace ZiZiBOOKS
                     Vector moveDist = _dragStartPoint - upPos;
                     if (Math.Abs(moveDist.X) < 2 && Math.Abs(moveDist.Y) < 2)
                     {
-                        Debug.WriteLine("[Rescue] キャプチャされましたが移動がないためクリックとして処理します");
                         Launch_Click(_draggedMainBtn, e);
                     }
                     else
@@ -244,7 +247,6 @@ namespace ZiZiBOOKS
 
                         if (newIndex != oldIndex && newIndex >= 0 && newIndex < _dict.Items.Count)
                         {
-                            Debug.WriteLine($"[Rearrange] {oldIndex} -> {newIndex}");
                             var item = _dict.Items[oldIndex];
                             _dict.Items.RemoveAt(oldIndex);
                             _dict.Items.Insert(newIndex, item);
@@ -254,10 +256,6 @@ namespace ZiZiBOOKS
                         }
                     }
                     e.Handled = true;
-                }
-                else
-                {
-                    Debug.WriteLine("[ClickConfirmed] 通常クリックとして処理");
                 }
 
                 _draggedMainBtn = null;
@@ -284,9 +282,8 @@ namespace ZiZiBOOKS
                 };
 
                 border.MouseLeftButtonDown += Border_MouseLeftButtonDown;
-                border.MouseMove += Border_MouseMove;
-                border.MouseLeftButtonUp += Border_MouseLeftButtonUp;
                 border.MouseEnter += Border_MouseEnter;
+                border.MouseLeftButtonUp += Border_MouseLeftButtonUp;
 
                 var grid = new Grid();
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(25) });
@@ -355,8 +352,6 @@ namespace ZiZiBOOKS
             }
         }
 
-        private void Border_MouseMove(object sender, MouseEventArgs e) { }
-
         private void StartEdit(int idx)
         {
             _editingIndex = idx;
@@ -383,7 +378,6 @@ namespace ZiZiBOOKS
         {
             try
             {
-                // URLドロップの処理
                 if (e.Data.GetDataPresent("UniformResourceLocator"))
                 {
                     var stream = e.Data.GetData("UniformResourceLocator") as System.IO.MemoryStream;
@@ -400,7 +394,6 @@ namespace ZiZiBOOKS
                         }
                     }
                 }
-                // ファイルドロップの処理
                 else if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 {
                     string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
@@ -411,7 +404,6 @@ namespace ZiZiBOOKS
                         IconPathBox.Text = files[0];
                     }
                 }
-
             }
             catch { }
             _lastActivityTime = DateTime.Now;
@@ -420,7 +412,10 @@ namespace ZiZiBOOKS
         private void CancelEdit_Click(object sender, RoutedEventArgs e)
         {
             _editingIndex = -1;
-            NameBox.Clear(); UrlBox.Clear(); IconPathBox.Clear(); MemoBox.Clear();
+            NameBox.Clear();
+            UrlBox.Clear();
+            IconPathBox.Clear();
+            MemoBox.Clear();
             EditTitle.Text = "項目の追加 / 編集";
             EditTitle.Foreground = Brushes.Cyan;
             CancelEditBtn.Visibility = Visibility.Collapsed;
@@ -455,7 +450,6 @@ namespace ZiZiBOOKS
             TopmostCheck.IsChecked = _settings.IsTopmost;
             this.Topmost = _settings.IsTopmost;
 
-            // 追加設定項目の反映
             IdleSecondsBox.Text = _settings.IdleSeconds.ToString();
             IdleOpacityBox.Text = _settings.IdleOpacity.ToString("0.00");
 
@@ -466,24 +460,23 @@ namespace ZiZiBOOKS
         {
             SemiContainer.Visibility = isMaji ? Visibility.Collapsed : Visibility.Visible;
             MajiContainer.Visibility = isMaji ? Visibility.Visible : Visibility.Collapsed;
+
+            // メインUIのスクロール領域も連動
+            MainScrollViewer.Visibility = isMaji ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private async void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(FontSizeBox.Text, out int fs))
             {
-                // 16px〜48pxの範囲外は許容しない（クランプ処理）
                 _settings.FontSize = Math.Max(16, Math.Min(fs, 48));
-                // 補正された値をテキストボックスに書き戻す
                 FontSizeBox.Text = _settings.FontSize.ToString();
             }
             else
             {
-                // 数値以外が入力された場合はデフォルトの16pxを適用
                 _settings.FontSize = 16;
             }
 
-            // 追加設定項目の取得とバリデーション
             if (int.TryParse(IdleSecondsBox.Text, out int sec)) _settings.IdleSeconds = sec;
             if (double.TryParse(IdleOpacityBox.Text, out double op)) _settings.IdleOpacity = Math.Clamp(op, 0.01, 1.0);
 
@@ -502,11 +495,9 @@ namespace ZiZiBOOKS
             if (sender is Button b && b.DataContext is string u)
             {
                 _lastActivityTime = DateTime.Now;
-                Debug.WriteLine($"[Launch_Click] URL: {u}");
                 try
                 {
                     var psi = new ProcessStartInfo { FileName = u, UseShellExecute = true };
-                    // URLではなくローカルのファイルパス(.exeなど)の場合、その親フォルダを作業パスに設定
                     if (System.IO.File.Exists(u))
                     {
                         psi.WorkingDirectory = System.IO.Path.GetDirectoryName(u);
@@ -515,7 +506,6 @@ namespace ZiZiBOOKS
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Launch_Error] {ex.Message}");
                     MessageBox.Show(ex.Message);
                 }
             }
@@ -547,27 +537,23 @@ namespace ZiZiBOOKS
             this.Topmost = _settings.IsTopmost;
         }
 
-        //private void ConfigButton_Click(object sender, RoutedEventArgs e) => ConfigPanel.Visibility = (ConfigPanel.Visibility == Visibility.Visible) ? Visibility.Collapsed : Visibility.Visible;
-
         private void ConfigButton_Click(object sender, RoutedEventArgs e)
         {
             if (ConfigPanel.Visibility == Visibility.Collapsed)
             {
-                // 1. 現在の位置を記憶
                 _originalLeft = this.Left;
                 _originalTop = this.Top;
 
-                // 2. 設定パネルを表示
                 ConfigPanel.Visibility = Visibility.Visible;
                 SemiContainer.Visibility = Visibility.Collapsed;
                 MajiContainer.Visibility = Visibility.Collapsed;
+                MainScrollViewer.Visibility = Visibility.Collapsed;
 
-                // 3. レイアウトを更新して展開後のサイズを確定
                 this.UpdateLayout();
+                UpdateWindowSizeLimit();
 
-                // 4. モニターの右端からはみ出す場合は、収まる位置まで左に寄せる
-                var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                var screenRect = GetCurrentMonitorWorkArea(hWnd: handle); // 前述のWin32版ヘルパーを使用
+                var handle = new WindowInteropHelper(this).Handle;
+                var screenRect = GetCurrentMonitorWorkArea(hWnd: handle);
 
                 double currentRight = this.Left + this.ActualWidth;
                 if (currentRight > screenRect.Right)
@@ -577,39 +563,30 @@ namespace ZiZiBOOKS
             }
             else
             {
-                // 5. 設定画面を閉じる
                 ConfigPanel.Visibility = Visibility.Collapsed;
 
-                // 6. 記憶していた元の位置に戻す
                 this.Left = _originalLeft;
                 this.Top = _originalTop;
 
-                // 7. モードに合わせて表示を復元
-                if (MajiModeCheck.IsChecked == true)
-                {
-                    MajiContainer.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    SemiContainer.Visibility = Visibility.Visible;
-                }
+                UpdateUIMode(_settings.IsMajiMode);
+                UpdateWindowSizeLimit();
             }
         }
 
         #region Win32 API for Monitor Detection (No Windows.Forms)
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
         private const uint MONITOR_DEFAULTTONEAREST = 2;
 
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct RECT { public int Left, Top, Right, Bottom; }
 
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         private struct MONITORINFO
         {
             public int cbSize;
@@ -622,15 +599,13 @@ namespace ZiZiBOOKS
         {
             IntPtr hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = new MONITORINFO();
-            mi.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(mi);
+            mi.cbSize = Marshal.SizeOf(mi);
 
             if (GetMonitorInfo(hMonitor, ref mi))
             {
-                // DPIスケーリングの取得
                 var source = PresentationSource.FromVisual(this);
                 double dpiScale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
 
-                // Win32の物理ピクセルをWPFの論理ピクセルに変換
                 return new Rect(
                     mi.rcWork.Left / dpiScale,
                     mi.rcWork.Top / dpiScale,
@@ -643,41 +618,90 @@ namespace ZiZiBOOKS
 
         #endregion
 
-        private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) { if (e.ChangedButton == MouseButton.Left) try { DragMove(); } catch { } }
-        //private void ExportConfig_Click(object sender, RoutedEventArgs e) { var s = new SaveFileDialog { Filter = "dict|*.dict" }; if (s.ShowDialog() == true) ConfigManager.SaveDict(_dict); }
+        private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                try { DragMove(); } catch { }
+            }
+        }
+
         private void ExportConfig_Click(object sender, RoutedEventArgs e)
         {
             var s = new SaveFileDialog { Filter = "Bookmark Dictionary (*.dict)|*.dict", FileName = "ZiZiBOOKS.dict" };
             if (s.ShowDialog() == true)
             {
-                // 指定されたファイルパスへ現在の _dict を保存する
                 ConfigManager.SaveDictToPath(_dict, s.FileName);
             }
         }
-        //private void ImportConfig_Click(object sender, RoutedEventArgs e) { var o = new OpenFileDialog { Filter = "dict|*.dict" }; if (o.ShowDialog() == true) { _dict = ConfigManager.LoadDict(); RefreshUI(); } }
+
         private void ImportConfig_Click(object sender, RoutedEventArgs e)
         {
             var o = new OpenFileDialog { Filter = "Bookmark Dictionary (*.dict)|*.dict" };
             if (o.ShowDialog() == true)
             {
-                // 指定されたファイルからロードし、現在の _dict を差し替える
                 var imported = ConfigManager.LoadDictFromPath(o.FileName);
                 if (imported != null)
                 {
                     _dict = imported;
                     RefreshUI();
-                    // アプリケーション既定の保存先にも反映
                     ConfigManager.SaveDict(_dict);
                 }
             }
         }
 
-        private void MajiModeCheck_Changed(object sender, RoutedEventArgs e) { if (_isInitialized) { _settings.IsMajiMode = MajiModeCheck.IsChecked ?? false; UpdateUIMode(_settings.IsMajiMode); } }
-        private void Window_LocationChanged(object sender, EventArgs e) { if (_isInitialized) { _settings.Top = Top; _settings.Left = Left; } }
+        private void MajiModeCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isInitialized)
+            {
+                _settings.IsMajiMode = MajiModeCheck.IsChecked ?? false;
+                UpdateUIMode(_settings.IsMajiMode);
+            }
+        }
+
+        private void Window_LocationChanged(object sender, EventArgs e)
+        {
+            if (_isInitialized && this.WindowState == WindowState.Normal)
+            {
+                _settings.Top = Top;
+                _settings.Left = Left;
+
+                // ディスプレイ移動時に解像度に合わせて制限値を再計算
+                UpdateWindowSizeLimit();
+            }
+        }
+
+        private void UpdateWindowSizeLimit()
+        {
+            try
+            {
+                var handle = new WindowInteropHelper(this).Handle;
+                if (handle == IntPtr.Zero) return;
+
+                var screenRect = GetCurrentMonitorWorkArea(handle);
+
+                // 4K解像度(高さ2160px)かつ登録数が40個未満の場合は制限をかけない(double.PositiveInfinity)
+                if (screenRect.Height >= 2160 && _dict.Items.Count < 40)
+                {
+                    MainScrollViewer.MaxHeight = double.PositiveInfinity;
+                }
+                else
+                {
+                    // それ以外（FHD等）は作業領域の高さの65%を上限とする
+                    MainScrollViewer.MaxHeight = screenRect.Height * 0.65;
+                }
+
+                // 設定パネルが表示中なら、中のリスト領域も制限（ここは解像度に関わらず固定枠とする）
+                if (ConfigPanel.Visibility == Visibility.Visible)
+                {
+                    ConfigListScroll.MaxHeight = screenRect.Height * 0.2;
+                }
+            }
+            catch { }
+        }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            // 最小化（Iconic）状態のときは座標を更新しない
             if (this.WindowState == WindowState.Normal)
             {
                 _settings.Top = this.Top;
@@ -686,6 +710,7 @@ namespace ZiZiBOOKS
             ConfigManager.SaveSettings(_settings);
             ConfigManager.SaveDict(_dict);
         }
+
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
     }
 }
