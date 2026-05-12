@@ -49,13 +49,20 @@ namespace ZiZiBOOKS
             CheckAndFixWindowPosition();
 
             RefreshUI();
-            _isInitialized = true;
 
-            // 起動時のディスプレイ環境に合わせてサイズ制限を適用
-            UpdateWindowSizeLimit();
+            // 重要：コンストラクタではなく、ウィンドウ描画完了後に解像度判定を行う
+            this.Loaded += MainWindow_Loaded;
 
             // 焼き付き防止用の監視ループ
             CompositionTarget.Rendering += OnRendering;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            _isInitialized = true;
+
+            // ウィンドウがOSに認識された状態で初回計算を実行
+            UpdateWindowSizeLimit();
         }
 
         private void CheckAndFixWindowPosition()
@@ -117,8 +124,11 @@ namespace ZiZiBOOKS
             CreateEditList();
             ApplySettingsToFields();
 
-            // 項目数変更に合わせて制限を再計算
-            UpdateWindowSizeLimit();
+            // 項目数変更に合わせて制限を再計算（初期化済みの場合のみ）
+            if (_isInitialized)
+            {
+                UpdateWindowSizeLimit();
+            }
         }
 
         private void CreateLauncherButtons()
@@ -484,10 +494,9 @@ namespace ZiZiBOOKS
             RefreshUI();
 
             _lastActivityTime = DateTime.Now;
-            double originalOpacity = ActiveOpacity;
             this.Opacity = 0.5;
             await Task.Delay(100);
-            this.Opacity = originalOpacity;
+            this.Opacity = ActiveOpacity;
         }
 
         private void Launch_Click(object sender, RoutedEventArgs e)
@@ -680,7 +689,7 @@ namespace ZiZiBOOKS
 
                 var screenRect = GetCurrentMonitorWorkArea(handle);
 
-                // 4K解像度(高さ2160px)かつ登録数が40個未満の場合は制限をかけない(double.PositiveInfinity)
+                // 4K解像度(高さ2160px)かつ登録数が40個未満の場合は制限をかけない
                 if (screenRect.Height >= 2160 && _dict.Items.Count < 40)
                 {
                     MainScrollViewer.MaxHeight = double.PositiveInfinity;
@@ -691,7 +700,7 @@ namespace ZiZiBOOKS
                     MainScrollViewer.MaxHeight = screenRect.Height * 0.65;
                 }
 
-                // 設定パネルが表示中なら、中のリスト領域も制限（ここは解像度に関わらず固定枠とする）
+                // 設定パネルが表示中なら、中のリスト領域も制限
                 if (ConfigPanel.Visibility == Visibility.Visible)
                 {
                     ConfigListScroll.MaxHeight = screenRect.Height * 0.2;
