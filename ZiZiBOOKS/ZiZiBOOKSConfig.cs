@@ -58,13 +58,15 @@ namespace ZiZiBOOKS
             catch { }
             return new AppSettings();
         }
-
+        
         public static void SaveSettings(AppSettings settings)
         {
             try
             {
                 string json = JsonSerializer.Serialize(settings, JsonOptions);
-                File.WriteAllText(JsonPath, json, new UTF8Encoding(false));
+                // [MOD] SaveSettings メソッドの内部をアトミック書き込みに変更
+                //File.WriteAllText(JsonPath, json, new UTF8Encoding(false));
+                AtomicWrite(JsonPath, json);
             }
             catch { }
         }
@@ -74,7 +76,9 @@ namespace ZiZiBOOKS
             try
             {
                 string json = JsonSerializer.Serialize(dict, JsonOptions);
-                File.WriteAllText(path, json, new UTF8Encoding(false));
+                // [MOD] SaveDictToPath メソッドの内部をアトミック書き込みに変更
+                //File.WriteAllText(path, json, new UTF8Encoding(false));
+                AtomicWrite(path, json);
             }
             catch { }
         }
@@ -103,9 +107,28 @@ namespace ZiZiBOOKS
             try
             {
                 string json = JsonSerializer.Serialize(dict, JsonOptions);
-                File.WriteAllText(DictPath, json, new UTF8Encoding(false));
+                // [MOD] SaveDict メソッドの内部をアトミック書き込みに変更
+                //File.WriteAllText(DictPath, json, new UTF8Encoding(false));
+                AtomicWrite(DictPath, json);
             }
             catch { }
+        }
+
+        // [ADD] ここから：安全な書き込み（一時ファイル経由）を行う共通メソッドを追加
+        /// <summary>
+        /// 一時ファイルを使用して安全に書き込みを行う（アトミックな書き込み）
+        /// </summary>
+        private static void AtomicWrite(string path, string content)
+        {
+            string tempPath = path + ".tmp";
+            // UTF-8 BOM無しで書き込み
+            File.WriteAllText(tempPath, content, new UTF8Encoding(false));
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            File.Move(tempPath, path);
         }
 
         private static BookmarkDict GetDefaultDict()

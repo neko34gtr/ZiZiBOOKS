@@ -45,6 +45,12 @@ namespace ZiZiBOOKS
             _settings = ConfigManager.LoadSettings();
             _dict = ConfigManager.LoadDict();
 
+            // [ADD] シャットダウンイベントの登録
+            if (Application.Current != null)
+            {
+                Application.Current.SessionEnding += (s, e) => FinalSave();
+            }
+
             // 座標の補正ロジック
             CheckAndFixWindowPosition();
 
@@ -55,6 +61,18 @@ namespace ZiZiBOOKS
 
             // 焼き付き防止用の監視ループ
             CompositionTarget.Rendering += OnRendering;
+        }
+
+        // [ADD] 保存処理のメソッド抽出
+        private void FinalSave()
+        {
+            if (this.WindowState == WindowState.Normal)
+            {
+                _settings.Top = this.Top;
+                _settings.Left = this.Left;
+            }
+            ConfigManager.SaveSettings(_settings);
+            ConfigManager.SaveDict(_dict);
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -711,13 +729,8 @@ namespace ZiZiBOOKS
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (this.WindowState == WindowState.Normal)
-            {
-                _settings.Top = this.Top;
-                _settings.Left = this.Left;
-            }
-            ConfigManager.SaveSettings(_settings);
-            ConfigManager.SaveDict(_dict);
+            //既存の Window_Closing を FinalSave 呼び出しに
+            FinalSave();
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
