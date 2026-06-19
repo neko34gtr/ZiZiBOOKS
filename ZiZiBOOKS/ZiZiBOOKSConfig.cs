@@ -15,7 +15,7 @@ namespace ZiZiBOOKS
         public double Left { get; set; } = double.NaN;
         public bool IsMajiMode { get; set; } = false;
         public bool IsTopmost { get; set; } = false;
-        public bool IsHoverTopmost { get; set; } = false; // マウスホバー時のみ最前面
+        public bool IsHoverTopmost { get; set; } = true; // マウスホバー時のみ最前面・便利なので標準ON
         public int FontSize { get; set; } = 16;
         public int Padding { get; set; } = 10;
         public int IdleSeconds { get; set; } = 5;      // 放置秒数
