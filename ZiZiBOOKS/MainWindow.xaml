@@ -151,6 +151,7 @@
                                     <TextBlock Text="表示設定" Foreground="Cyan" FontSize="11" Margin="0,0,0,3"/>
                                     <CheckBox x:Name="MajiModeCheck" Content="タイル表示" Foreground="White" FontSize="10" Margin="0,2" Checked="MajiModeCheck_Changed" Unchecked="MajiModeCheck_Changed"/>
                                     <CheckBox x:Name="TopmostCheck" Content="最前面" Foreground="White" FontSize="10" Margin="0,2" Checked="TopmostCheck_Changed" Unchecked="TopmostCheck_Changed"/>
+                                    <CheckBox x:Name="HoverTopmostCheck" Content="ホバー時最前面" Foreground="White" VerticalAlignment="Center" Checked="HoverTopmostCheck_Changed" Unchecked="HoverTopmostCheck_Changed"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,3">
                                         <TextBlock Text="字:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
                                         <TextBox x:Name="FontSizeBox" Width="30" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>

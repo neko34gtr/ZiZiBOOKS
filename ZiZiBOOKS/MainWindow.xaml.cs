@@ -26,10 +26,10 @@ namespace ZiZiBOOKS
         private int _draggedIndex = -1;
 
         // メイン側D&D用の変数
-        private Button? _draggedMainBtn = null;
+        private System.Windows.Controls.Button? _draggedMainBtn = null;
         private int _draggedMainIndex = -1;
         private int _targetInsertIndex = -1;
-        private Point _dragStartPoint;
+        private System.Windows.Point _dragStartPoint;
 
         // OLED焼き付き防止用変数
         private DateTime _lastActivityTime = DateTime.Now;
@@ -39,6 +39,8 @@ namespace ZiZiBOOKS
         private double _originalLeft;
         private double _originalTop;
 
+        private bool _baseTopmost = false; // ホバー前の本来のTopmost状態を保持
+
         public MainWindow()
         {
             InitializeComponent();
@@ -46,9 +48,9 @@ namespace ZiZiBOOKS
             _dict = ConfigManager.LoadDict();
 
             // [ADD] シャットダウンイベントの登録
-            if (Application.Current != null)
+            if (System.Windows.Application.Current != null)
             {
-                Application.Current.SessionEnding += (s, e) => FinalSave();
+                System.Windows.Application.Current.SessionEnding += (s, e) => FinalSave();
             }
 
             // 座標の補正ロジック
@@ -157,7 +159,7 @@ namespace ZiZiBOOKS
             {
                 var icon = GetIcon(!string.IsNullOrEmpty(item.IconPath) ? item.IconPath : item.Url);
 
-                var semiBtn = new Button
+                var semiBtn = new System.Windows.Controls.Button
                 {
                     Content = item.Name,
                     Tag = icon,
@@ -173,7 +175,7 @@ namespace ZiZiBOOKS
                 semiBtn.Click += Launch_Click;
                 SemiContainer.Children.Add(semiBtn);
 
-                var majiBtn = new Button
+                var majiBtn = new System.Windows.Controls.Button
                 {
                     Content = item.Name,
                     Tag = item.Url,
@@ -188,7 +190,7 @@ namespace ZiZiBOOKS
 
         private void MainBtn_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is Button btn)
+            if (sender is System.Windows.Controls.Button btn)
             {
                 _lastActivityTime = DateTime.Now;
                 _dragStartPoint = e.GetPosition(this);
@@ -197,14 +199,14 @@ namespace ZiZiBOOKS
             }
         }
 
-        private void MainBtn_PreviewMouseMove(object sender, MouseEventArgs e)
+        private void MainBtn_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             if (_draggedMainBtn == null) return;
 
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 _lastActivityTime = DateTime.Now;
-                Point currentPos = e.GetPosition(this);
+                System.Windows.Point currentPos = e.GetPosition(this);
                 Vector diff = _dragStartPoint - currentPos;
 
                 if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
@@ -216,7 +218,7 @@ namespace ZiZiBOOKS
                         _draggedMainBtn.Opacity = 0.5;
                     }
 
-                    Point mousePos = e.GetPosition(SemiContainer);
+                    System.Windows.Point mousePos = e.GetPosition(SemiContainer);
                     int newIndex = 0;
                     double accumulatedHeight = 0;
 
@@ -235,12 +237,12 @@ namespace ZiZiBOOKS
                     if (_targetInsertIndex < SemiContainer.Children.Count)
                     {
                         var targetElement = (FrameworkElement)SemiContainer.Children[_targetInsertIndex];
-                        lineY = targetElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y - targetElement.Margin.Top;
+                        lineY = targetElement.TransformToAncestor(SemiContainer).Transform(new System.Windows.Point(0, 0)).Y - targetElement.Margin.Top;
                     }
                     else if (SemiContainer.Children.Count > 0)
                     {
                         var lastElement = (FrameworkElement)SemiContainer.Children[^1];
-                        lineY = lastElement.TransformToAncestor(SemiContainer).Transform(new Point(0, 0)).Y
+                        lineY = lastElement.TransformToAncestor(SemiContainer).Transform(new System.Windows.Point(0, 0)).Y
                                 + lastElement.ActualHeight + lastElement.Margin.Bottom;
                     }
                     InsertIndicator.Margin = new Thickness(0, lineY, 0, 0);
@@ -261,7 +263,7 @@ namespace ZiZiBOOKS
                     _draggedMainBtn.Opacity = 1.0;
                     InsertIndicator.Visibility = Visibility.Collapsed;
 
-                    Point upPos = e.GetPosition(this);
+                    System.Windows.Point upPos = e.GetPosition(this);
                     Vector moveDist = _dragStartPoint - upPos;
                     if (Math.Abs(moveDist.X) < 2 && Math.Abs(moveDist.Y) < 2)
                     {
@@ -301,12 +303,12 @@ namespace ZiZiBOOKS
 
                 var border = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)),
+                    Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 255, 255)),
                     CornerRadius = new CornerRadius(4),
                     Margin = new Thickness(0, 2, 0, 2),
                     Padding = new Thickness(5),
                     Tag = index,
-                    Cursor = Cursors.SizeAll
+                    Cursor = System.Windows.Input.Cursors.SizeAll
                 };
 
                 border.MouseLeftButtonDown += Border_MouseLeftButtonDown;
@@ -318,19 +320,19 @@ namespace ZiZiBOOKS
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var txtNo = new TextBlock { Text = (i + 1).ToString(), Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, FontSize = 10 };
+                var txtNo = new TextBlock { Text = (i + 1).ToString(), Foreground = System.Windows.Media.Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, FontSize = 10 };
                 Grid.SetColumn(txtNo, 0); grid.Children.Add(txtNo);
 
                 var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-                stack.Children.Add(new TextBlock { Text = item.Name, Foreground = Brushes.White, FontWeight = FontWeights.Bold });
-                stack.Children.Add(new TextBlock { Text = item.Url, Foreground = Brushes.Gray, FontSize = 9 });
+                stack.Children.Add(new TextBlock { Text = item.Name, Foreground = System.Windows.Media.Brushes.White, FontWeight = FontWeights.Bold });
+                stack.Children.Add(new TextBlock { Text = item.Url, Foreground = System.Windows.Media.Brushes.Gray, FontSize = 9 });
                 Grid.SetColumn(stack, 1); grid.Children.Add(stack);
 
-                var ops = new StackPanel { Orientation = Orientation.Horizontal };
-                var btnEdit = new Button { Content = "編集", Width = 35, Margin = new Thickness(5, 0, 0, 0), Background = Brushes.DarkCyan, Foreground = Brushes.White, FontSize = 10, Cursor = Cursors.Hand };
+                var ops = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+                var btnEdit = new System.Windows.Controls.Button { Content = "編集", Width = 35, Margin = new Thickness(5, 0, 0, 0), Background = System.Windows.Media.Brushes.DarkCyan, Foreground = System.Windows.Media.Brushes.White, FontSize = 10, Cursor = System.Windows.Input.Cursors.Hand };
                 btnEdit.Click += (s, e) => StartEdit(index);
 
-                var btnDel = new Button { Content = "消", Width = 25, Margin = new Thickness(2, 0, 0, 0), Background = Brushes.DarkRed, Foreground = Brushes.White, FontSize = 10, Cursor = Cursors.Hand };
+                var btnDel = new System.Windows.Controls.Button { Content = "消", Width = 25, Margin = new Thickness(2, 0, 0, 0), Background = System.Windows.Media.Brushes.DarkRed, Foreground = System.Windows.Media.Brushes.White, FontSize = 10, Cursor = System.Windows.Input.Cursors.Hand };
                 btnDel.Click += (s, e) => { _dict.Items.RemoveAt(index); RefreshUI(); ConfigManager.SaveDict(_dict); };
 
                 ops.Children.Add(btnEdit); ops.Children.Add(btnDel);
@@ -353,7 +355,7 @@ namespace ZiZiBOOKS
             }
         }
 
-        private void Border_MouseEnter(object sender, MouseEventArgs e)
+        private void Border_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
             if (_draggedItem != null && sender is Border targetBorder && _draggedItem != targetBorder)
             {
@@ -389,20 +391,20 @@ namespace ZiZiBOOKS
             IconPathBox.Text = item.IconPath;
             MemoBox.Text = item.Memo;
             EditTitle.Text = "項目を編集モード";
-            EditTitle.Foreground = Brushes.Yellow;
+            EditTitle.Foreground = System.Windows.Media.Brushes.Yellow;
             CancelEditBtn.Visibility = Visibility.Visible;
         }
 
-        private void EditArea_DragOver(object sender, DragEventArgs e)
+        private void EditArea_DragOver(object sender, System.Windows.DragEventArgs e)
         {
-            if (e.Data.GetDataPresent("UniformResourceLocator") || e.Data.GetDataPresent(DataFormats.FileDrop))
+            if (e.Data.GetDataPresent("UniformResourceLocator") || e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
             {
-                e.Effects = DragDropEffects.Copy;
+                e.Effects = System.Windows.DragDropEffects.Copy;
                 e.Handled = true;
             }
         }
 
-        private void EditArea_Drop(object sender, DragEventArgs e)
+        private void EditArea_Drop(object sender, System.Windows.DragEventArgs e)
         {
             try
             {
@@ -415,16 +417,16 @@ namespace ZiZiBOOKS
                         string url = System.Text.Encoding.UTF8.GetString(data).Split('\0')[0];
                         UrlBox.Text = url;
 
-                        if (e.Data.GetDataPresent(DataFormats.Text))
+                        if (e.Data.GetDataPresent(System.Windows.DataFormats.Text))
                         {
-                            string title = e.Data.GetData(DataFormats.Text)?.ToString() ?? "";
+                            string title = e.Data.GetData(System.Windows.DataFormats.Text)?.ToString() ?? "";
                             if (!string.IsNullOrEmpty(title) && title != url) NameBox.Text = title;
                         }
                     }
                 }
-                else if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                else if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
                 {
-                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    string[] files = (string[])e.Data.GetData(System.Windows.DataFormats.FileDrop);
                     if (files != null && files.Length > 0)
                     {
                         UrlBox.Text = files[0];
@@ -445,7 +447,7 @@ namespace ZiZiBOOKS
             IconPathBox.Clear();
             MemoBox.Clear();
             EditTitle.Text = "項目の追加 / 編集";
-            EditTitle.Foreground = Brushes.Cyan;
+            EditTitle.Foreground = System.Windows.Media.Brushes.Cyan;
             CancelEditBtn.Visibility = Visibility.Collapsed;
         }
 
@@ -475,8 +477,14 @@ namespace ZiZiBOOKS
             this.Left = _settings.Left;
             FontSizeBox.Text = _settings.FontSize.ToString();
             MajiModeCheck.IsChecked = _settings.IsMajiMode;
+
             TopmostCheck.IsChecked = _settings.IsTopmost;
+            _baseTopmost = _settings.IsTopmost;
             this.Topmost = _settings.IsTopmost;
+
+            // ホバー最前面設定の反映とイベント制御
+            HoverTopmostCheck.IsChecked = _settings.IsHoverTopmost;
+            UpdateHoverTopmostEvent(_settings.IsHoverTopmost);
 
             IdleSecondsBox.Text = _settings.IdleSeconds.ToString();
             IdleOpacityBox.Text = _settings.IdleOpacity.ToString("0.00");
@@ -519,7 +527,7 @@ namespace ZiZiBOOKS
 
         private void Launch_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button b && b.DataContext is string u)
+            if (sender is System.Windows.Controls.Button b && b.DataContext is string u)
             {
                 _lastActivityTime = DateTime.Now;
                 try
@@ -533,7 +541,7 @@ namespace ZiZiBOOKS
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message);
+                    System.Windows.MessageBox.Show(ex.Message);
                 }
             }
         }
@@ -547,21 +555,82 @@ namespace ZiZiBOOKS
                     return new BitmapImage(new Uri($"https://www.google.com/s2/favicons?domain={path}&sz=64"));
 
                 if (!System.IO.File.Exists(path)) return null;
-                using (var icon = System.Drawing.Icon.ExtractAssociatedIcon(path))
+
+                // Win32 API SHGetFileInfo を使用して、Drawing.Icon に依存せずアイコンを抽出
+                SHFILEINFO shfi = new SHFILEINFO();
+                IntPtr hSuccess = SHGetFileInfo(path, 0, ref shfi, (uint)Marshal.SizeOf(shfi), SHGFI_ICON | SHGFI_LARGEICON);
+
+                if (hSuccess != IntPtr.Zero && shfi.hIcon != IntPtr.Zero)
                 {
-                    if (icon == null) return null;
-                    return System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(
-                        icon.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    ImageSource imgSource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(
+                        shfi.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+
+                    DestroyIcon(shfi.hIcon); // ハンドルの解放漏れ（メモリリーク）対策
+                    return imgSource;
                 }
             }
             catch { return null; }
+            return null;
         }
 
         private void TopmostCheck_Changed(object sender, RoutedEventArgs e)
         {
             if (!_isInitialized) return;
             _settings.IsTopmost = TopmostCheck.IsChecked ?? false;
-            this.Topmost = _settings.IsTopmost;
+            _baseTopmost = _settings.IsTopmost;
+
+            // ホバー最前面が動作中でない場合のみ即時反映
+            if (!_settings.IsHoverTopmost || !this.IsMouseOver)
+            {
+                this.Topmost = _settings.IsTopmost;
+            }
+        }
+
+        private void HoverTopmostCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!_isInitialized) return;
+            _settings.IsHoverTopmost = HoverTopmostCheck.IsChecked ?? false;
+            ConfigManager.SaveSettings(_settings);
+
+            UpdateHoverTopmostEvent(_settings.IsHoverTopmost);
+        }
+
+        private void UpdateHoverTopmostEvent(bool enable)
+        {
+            // 重複登録を防ぐため一度剥がしてから再登録
+            this.MouseEnter -= Window_MouseEnter;
+            this.MouseLeave -= Window_MouseLeave;
+
+            if (enable)
+            {
+                this.MouseEnter += Window_MouseEnter;
+                this.MouseLeave += Window_MouseLeave;
+
+                // 現在すでにマウスが乗っているなら即座に最前面化
+                if (this.IsMouseOver) this.Topmost = true;
+            }
+            else
+            {
+                // 無効化されたら本来のベース状態（常時最前面のON/OFF）に戻す
+                this.Topmost = _baseTopmost;
+            }
+        }
+
+        private void Window_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (_settings.IsHoverTopmost)
+            {
+                this.Topmost = true;
+            }
+        }
+
+        private void Window_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (_settings.IsHoverTopmost)
+            {
+                // マウスが離れたら、常時最前面設定（_baseTopmost）の状態に戻す
+                this.Topmost = _baseTopmost;
+            }
         }
 
         private void ConfigButton_Click(object sender, RoutedEventArgs e)
@@ -600,7 +669,7 @@ namespace ZiZiBOOKS
             }
         }
 
-        #region Win32 API for Monitor Detection (No Windows.Forms)
+        #region Win32 API for Monitor Detection & Icon Extraction (No Windows.Forms)
 
         [DllImport("user32.dll")]
         private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
@@ -608,7 +677,29 @@ namespace ZiZiBOOKS
         [DllImport("user32.dll")]
         private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
+        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psid, uint cbFileInfo, uint uFlags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        private const uint SHGFI_ICON = 0x000000100;
+        private const uint SHGFI_LARGEICON = 0x000000000;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct SHFILEINFO
+        {
+            public IntPtr hIcon;
+            public int iIcon;
+            public uint dwAttributes;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string szDisplayName;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+            public string szTypeName;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT { public int Left, Top, Right, Bottom; }
@@ -733,6 +824,6 @@ namespace ZiZiBOOKS
             FinalSave();
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+        private void CloseButton_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
     }
 }
