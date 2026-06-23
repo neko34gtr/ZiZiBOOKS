@@ -618,10 +618,50 @@ namespace ZiZiBOOKS
 
         private void Window_MouseEnter(object sender, MouseEventArgs e)
         {
+            // 4K以上、かつホバー最前面が有効な場合のみ動作
             if (_settings.IsHoverTopmost)
             {
-                this.Topmost = true;
+                var handle = new WindowInteropHelper(this).Handle;
+                if (handle != IntPtr.Zero && GetCurrentMonitorWorkArea(handle).Height >= 2160)
+                {
+                    // 自ウィンドウの上に他のウィンドウが重なっているかチェック
+                    if (!IsWindowOverlappedByOthers(handle))
+                    {
+                        this.Topmost = true;
+                    }
+                }
             }
+        }
+
+        /// <summary>
+        /// 自ウィンドウの上に物理的に重なっている（オーバーラップしている）他の可視ウィンドウがあるか判定する
+        /// </summary>
+        private bool IsWindowOverlappedByOthers(IntPtr hWnd)
+        {
+            if (!GetWindowRect(hWnd, out RECT myRect)) return false;
+
+            // Zオーダーを前面（手前）に向かって走査
+            IntPtr nextWnd = GetWindow(hWnd, GW_HWNDPREV);
+            while (nextWnd != IntPtr.Zero)
+            {
+                // 可視状態かつ、自分自身以外の別ウィンドウである場合のみ判定
+                if (IsWindowVisible(nextWnd) && nextWnd != hWnd)
+                {
+                    if (GetWindowRect(nextWnd, out RECT otherRect))
+                    {
+                        // 領域が交差しているか判定（オーバーラップ検出）
+                        bool isIntersect = (myRect.Left < otherRect.Right && myRect.Right > otherRect.Left &&
+                                            myRect.Top < otherRect.Bottom && myRect.Bottom > otherRect.Top);
+
+                        if (isIntersect)
+                        {
+                            return true; // 上に重なっているウィンドウを発見
+                        }
+                    }
+                }
+                nextWnd = GetWindow(nextWnd, GW_HWNDPREV);
+            }
+            return false;
         }
 
         private void Window_MouseLeave(object sender, MouseEventArgs e)
@@ -671,6 +711,18 @@ namespace ZiZiBOOKS
 
         #region Win32 API for Monitor Detection & Icon Extraction (No Windows.Forms)
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        private const uint GW_HWNDPREV = 3; // Zオーダーが1つ上のウィンドウを取得
         [DllImport("user32.dll")]
         private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
