@@ -8,6 +8,8 @@
         Closing="Window_Closing" LocationChanged="Window_LocationChanged">
 
     <Window.Resources>
+
+        <!-- ===== メイン画面：ランチャーボタン ===== -->
         <Style x:Key="SemiModeStyle" TargetType="Button">
             <Setter Property="Background" Value="#25FFFFFF"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -25,6 +27,11 @@
                                 <ContentPresenter VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#38FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -44,38 +51,201 @@
                         <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12" BorderBrush="#55FFFFFF" BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
+        <!-- ===== ヘッダーアイコンボタン（⚙ / 閉じる） ===== -->
         <Style x:Key="IconButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Foreground" Value="#88FFFFFF"/>
-            <Setter Property="Width" Value="40"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="15">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <Style x:Key="ConfigInput" TargetType="TextBox">
-            <Setter Property="Background" Value="#33FFFFFF"/>
-            <Setter Property="Foreground" Value="White"/>
+        <!-- ===== 設定画面：カード / 見出し / ラベル ===== -->
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background" Value="#12FFFFFF"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#55FFFFFF"/>
-            <Setter Property="Padding" Value="5"/>
-            <Setter Property="Margin" Value="0,2,0,10"/>
         </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#818CF8"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+        </Style>
+
+        <!-- ===== 設定画面：入力欄（フォーカス時にアクセントカラー） ===== -->
+        <Style x:Key="ConfigInput" TargetType="TextBox">
+            <Setter Property="Background" Value="#1A1B26"/>
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="CaretBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderBrush" Value="#2A2C3D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#40435C"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#6366F1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 設定画面：トグルスイッチ（CheckBoxを置き換え） ===== -->
+        <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Track" Grid.Column="0" Width="34" Height="18" CornerRadius="9" Background="#33FFFFFF" VerticalAlignment="Center">
+                                <Border x:Name="Thumb" Width="14" Height="14" CornerRadius="7" Background="#D1D5DB" HorizontalAlignment="Left" Margin="2,0,0,0"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="#6366F1"/>
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0"/>
+                                <Setter TargetName="Thumb" Property="Background" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 設定画面：ボタン（アクセント / セカンダリ） ===== -->
+        <Style x:Key="AccentButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#6366F1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#7A7DF5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#4F52D6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Setter Property="Background" Value="#2A2C3D"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#383B52"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#1F212E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#22D6A5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#0B9268"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
-    <Border x:Name="MainBorder" Background="#EE1A1A1B" CornerRadius="15" BorderBrush="#44FFFFFF" BorderThickness="1.5">
+    <Border x:Name="MainBorder" Background="#EE15161F" CornerRadius="15" BorderBrush="#332A2D3D" BorderThickness="1.5">
         <Grid Margin="5">
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
@@ -83,10 +253,10 @@
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="Header_MouseLeftButtonDown">
-                <TextBlock Text="ZiZiBOOKS Modern" Foreground="#66FFFFFF" FontSize="11" VerticalAlignment="Center" Margin="15,0" IsHitTestVisible="False"/>
+                <TextBlock Text="ZiZiBOOKS" Foreground="#6B7280" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="15,0" IsHitTestVisible="False"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="⚙" FontFamily="Segoe UI Symbol" FontSize="16" Style="{StaticResource IconButtonStyle}" Click="ConfigButton_Click"/>
-                    <Button Content="" FontFamily="Segoe MDL2 Assets" FontSize="12" Style="{StaticResource IconButtonStyle}" Click="CloseButton_Click"/>
+                    <Button Content="⚙" FontFamily="Segoe UI Symbol" FontSize="15" Style="{StaticResource IconButtonStyle}" Click="ConfigButton_Click"/>
+                    <Button Content="" FontFamily="Segoe MDL2 Assets" FontSize="11" Style="{StaticResource IconButtonStyle}" Click="CloseButton_Click"/>
                 </StackPanel>
             </Grid>
 
@@ -105,7 +275,8 @@
                 <UniformGrid x:Name="MajiContainer" Columns="2" Visibility="Collapsed"/>
             </Grid>
 
-            <Grid x:Name="ConfigPanel" Grid.Row="1" Background="#F91E1E1E" Visibility="Collapsed" Width="300">
+            <!-- ===== 設定パネル（SaaS風カードレイアウト） ===== -->
+            <Grid x:Name="ConfigPanel" Grid.Row="1" Background="#F5121219" Visibility="Collapsed" Width="330">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -113,73 +284,92 @@
                     </Grid.RowDefinitions>
 
                     <ScrollViewer x:Name="ConfigMainScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="15,10">
-                            <TextBlock Text="ZiZiBOOKS - 設定" Foreground="White" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                        <StackPanel Margin="12,10">
 
-                            <TextBlock Text="現在のブックマーク" Foreground="Cyan" FontSize="11" Margin="0,5,0,2"/>
-                            <ScrollViewer x:Name="ConfigListScroll" MaxHeight="160" VerticalScrollBarVisibility="Auto" Background="#0AFFFFFF">
-                                <StackPanel x:Name="EditListContainer"/>
-                            </ScrollViewer>
+                            <TextBlock Text="設定" Foreground="White" FontSize="15" FontWeight="Bold" Margin="2,0,0,10"/>
 
-                            <Separator Background="#33FFFFFF" Margin="0,10"/>
+                            <!-- ブックマーク一覧 -->
+                            <Border Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="現在のブックマーク" Style="{StaticResource SectionHeader}"/>
+                                    <ScrollViewer x:Name="ConfigListScroll" MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="EditListContainer"/>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Border>
 
-                            <StackPanel Background="Transparent" AllowDrop="True" PreviewDragOver="EditArea_DragOver" Drop="EditArea_Drop">
-                                <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Foreground="Cyan" FontSize="11" Margin="0,5,0,5"/>
+                            <!-- 項目の追加/編集 -->
+                            <Border Style="{StaticResource SectionCard}" AllowDrop="True" PreviewDragOver="EditArea_DragOver" Drop="EditArea_Drop">
+                                <StackPanel>
+                                    <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Style="{StaticResource SectionHeader}"/>
 
-                                <TextBlock Text="名前:" Foreground="White" FontSize="10"/>
-                                <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
+                                    <TextBlock Text="名前" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
 
-                                <TextBlock Text="URL / 実行パス:" Foreground="White" FontSize="10"/>
-                                <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
+                                    <TextBlock Text="URL / 実行パス" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
 
-                                <TextBlock Text="アイコンパス (任意):" Foreground="White" FontSize="10"/>
-                                <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
+                                    <TextBlock Text="アイコンパス（任意）" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
 
-                                <TextBlock Text="メモ:" Foreground="White" FontSize="10"/>
-                                <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}"/>
-                            </StackPanel>
+                                    <TextBlock Text="メモ" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}" Margin="0"/>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <Button x:Name="AddUpdateBtn" Content="追加/更新" Background="#28a745" Foreground="White" Padding="15,4" Cursor="Hand" Click="AddUpdate_Click"/>
-                                <Button x:Name="CancelEditBtn" Content="キャンセル" Background="#666666" Foreground="White" Padding="10,4" Margin="10,0,0,0" Visibility="Collapsed" Cursor="Hand" Click="CancelEdit_Click"/>
-                            </StackPanel>
-
-                            <Separator Background="#33FFFFFF" Margin="0,10"/>
-
-                            <UniformGrid Columns="2">
-                                <StackPanel Margin="0,0,5,0">
-                                    <TextBlock Text="表示設定" Foreground="Cyan" FontSize="11" Margin="0,0,0,3"/>
-                                    <CheckBox x:Name="MajiModeCheck" Content="タイル表示" Foreground="White" FontSize="10" Margin="0,2" Checked="MajiModeCheck_Changed" Unchecked="MajiModeCheck_Changed"/>
-                                    <CheckBox x:Name="TopmostCheck" Content="最前面" Foreground="White" FontSize="10" Margin="0,2" Checked="TopmostCheck_Changed" Unchecked="TopmostCheck_Changed"/>
-                                    <CheckBox x:Name="HoverTopmostCheck" Content="ホバー時最前面" Foreground="White" VerticalAlignment="Center" Checked="HoverTopmostCheck_Changed" Unchecked="HoverTopmostCheck_Changed"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,3">
-                                        <TextBlock Text="字:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBox x:Name="FontSizeBox" Width="30" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <Button x:Name="AddUpdateBtn" Content="追加 / 更新" Style="{StaticResource SuccessButtonStyle}" Click="AddUpdate_Click"/>
+                                        <Button x:Name="CancelEditBtn" Content="キャンセル" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Visibility="Collapsed" Click="CancelEdit_Click"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Margin="5,0,0,0">
-                                    <TextBlock Text="焼き付き防止" Foreground="Yellow" FontSize="11" FontWeight="Bold" Margin="0,0,0,3"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2">
-                                        <TextBlock Text="秒:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBox x:Name="IdleSecondsBox" Width="30" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>
+                            </Border>
+
+                            <!-- 表示設定 / 焼き付き防止 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="表示設定" Style="{StaticResource SectionHeader}"/>
+                                        <CheckBox x:Name="MajiModeCheck" Content="タイル表示" Style="{StaticResource ToggleSwitchStyle}" Checked="MajiModeCheck_Changed" Unchecked="MajiModeCheck_Changed"/>
+                                        <CheckBox x:Name="TopmostCheck" Content="最前面" Style="{StaticResource ToggleSwitchStyle}" Checked="TopmostCheck_Changed" Unchecked="TopmostCheck_Changed"/>
+                                        <CheckBox x:Name="HoverTopmostCheck" Content="ホバー時最前面" Style="{StaticResource ToggleSwitchStyle}" Checked="HoverTopmostCheck_Changed" Unchecked="HoverTopmostCheck_Changed"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="文字サイズ" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0"/>
+                                            <TextBox x:Name="FontSizeBox" Width="34" Style="{StaticResource ConfigInput}" Margin="6,0,0,0"/>
+                                        </StackPanel>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2">
-                                        <TextBlock Text="不透明:" Foreground="White" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBox x:Name="IdleOpacityBox" Width="35" Style="{StaticResource ConfigInput}" Margin="3,0,0,0"/>
+                                </Border>
+
+                                <Border Grid.Column="2" Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="焼き付き防止" Foreground="#FBBF24" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <TextBlock Text="放置秒数" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="IdleSecondsBox" Style="{StaticResource ConfigInput}"/>
+                                        <TextBlock Text="不透明度" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="IdleOpacityBox" Style="{StaticResource ConfigInput}" Margin="0,0,0,8"/>
+                                        <Button Content="設定保存" Style="{StaticResource SuccessButtonStyle}" HorizontalAlignment="Right" Padding="10,5" Click="SaveSettings_Click"/>
                                     </StackPanel>
-                                    <Button Content="設定保存" Background="#28a745" Foreground="White" Padding="8,2" HorizontalAlignment="Right" Margin="0,2,0,0" Cursor="Hand" Click="SaveSettings_Click"/>
-                                </StackPanel>
-                            </UniformGrid>
+                                </Border>
+                            </Grid>
+
                         </StackPanel>
                     </ScrollViewer>
 
-                    <Border Grid.Row="1" Background="#F91E1E1E" BorderBrush="#33FFFFFF" BorderThickness="0,1,0,0" Padding="10">
+                    <Border Grid.Row="1" Background="#F5121219" BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0" Padding="12,10">
                         <StackPanel>
-                            <UniformGrid Columns="2" Margin="0,0,0,8">
-                                <Button Content="出力" Background="#0078D4" Foreground="White" Padding="5,3" Margin="0,0,4,0" Cursor="Hand" Click="ExportConfig_Click"/>
-                                <Button Content="入力" Background="#0078D4" Foreground="White" Padding="5,3" Margin="4,0,0,0" Cursor="Hand" Click="ImportConfig_Click"/>
-                            </UniformGrid>
-                            <Button Content="設定を閉じる" Background="#555555" Foreground="White" Padding="0,6" HorizontalAlignment="Stretch" Cursor="Hand" Click="ConfigButton_Click"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="エクスポート" Style="{StaticResource SecondaryButtonStyle}" Padding="0,7" Click="ExportConfig_Click"/>
+                                <Button Grid.Column="2" Content="インポート" Style="{StaticResource SecondaryButtonStyle}" Padding="0,7" Click="ImportConfig_Click"/>
+                            </Grid>
+                            <Button Content="設定を閉じる" Style="{StaticResource AccentButtonStyle}" Padding="0,8" HorizontalAlignment="Stretch" Click="ConfigButton_Click"/>
                         </StackPanel>
                     </Border>
                 </Grid>
