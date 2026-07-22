@@ -117,6 +117,22 @@ namespace ZiZiBOOKS
         {
             _isInitialized = true;
 
+            // [ADD] 実際にウィンドウが配置されたモニタのDPIで最終補正
+            // （コンストラクタ時点のSystemParametersはモニタ確定前の概算のため、ここで確定値を使い再検証する）
+            var handle = new WindowInteropHelper(this).Handle;
+            var monitorRect = GetCurrentMonitorWorkArea(handle);
+
+            bool isOffScreen = this.Left + this.ActualWidth < monitorRect.Left + 40 ||
+                                this.Left > monitorRect.Right - 40 ||
+                                this.Top + this.ActualHeight < monitorRect.Top + 40 ||
+                                this.Top > monitorRect.Bottom - 40;
+
+            if (isOffScreen)
+            {
+                this.Left = monitorRect.Left + (monitorRect.Width - this.ActualWidth) / 2;
+                this.Top = monitorRect.Top + (monitorRect.Height - this.ActualHeight) / 2;
+            }
+
             // ウィンドウがOSに認識された状態で初回計算を実行
             UpdateWindowSizeLimit();
         }
@@ -126,12 +142,25 @@ namespace ZiZiBOOKS
             double screenWidth = SystemParameters.WorkArea.Width;
             double screenHight = SystemParameters.WorkArea.Height;
 
+            // [MOD] 仮想スクリーン全体（全モニタ含む・現在の表示倍率での論理座標）
+            // 前回起動時と表示倍率(DPI)が異なる場合、保存済みのTop/Leftは
+            // 「別の物差し」で測った値になっているため、現在のスクリーン範囲で再判定する
+            double vLeft = SystemParameters.VirtualScreenLeft;
+            double vTop = SystemParameters.VirtualScreenTop;
+            double vWidth = SystemParameters.VirtualScreenWidth;
+            double vHeight = SystemParameters.VirtualScreenHeight;
+
+            // ウィンドウの一部でも画面内に残っていればOKとする可視マージン
+            const double visibleMargin = 60;
+
             bool isInvalid = double.IsNaN(_settings.Top) ||
                              double.IsNaN(_settings.Left) ||
-                             _settings.Top < -10000 ||
-                             _settings.Top > 20000 ||
-                             _settings.Left < -10000 ||
-                             _settings.Left > 20000;
+                             // [MOD] 例：前回100%終了→今回150%起動のように、
+                             // 保存座標が現在の仮想スクリーン範囲を大きくはみ出す場合を検知
+                             _settings.Left > vLeft + vWidth - visibleMargin ||
+                             _settings.Left < vLeft - visibleMargin ||
+                             _settings.Top > vTop + vHeight - visibleMargin ||
+                             _settings.Top < vTop - visibleMargin;
 
             if (isInvalid)
             {
