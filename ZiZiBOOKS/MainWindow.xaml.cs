@@ -482,9 +482,10 @@ namespace ZiZiBOOKS
             _baseTopmost = _settings.IsTopmost;
             this.Topmost = _settings.IsTopmost;
 
-            // ホバー最前面設定の反映とイベント制御
+            // ホバー最前面設定の反映（解像度制限チェックを含む）
             HoverTopmostCheck.IsChecked = _settings.IsHoverTopmost;
-            UpdateHoverTopmostEvent(_settings.IsHoverTopmost);
+            // UpdateHoverTopmostEvent(_settings.IsHoverTopmost);
+            CheckMonitorResolutionForHover();
 
             IdleSecondsBox.Text = _settings.IdleSeconds.ToString();
             IdleOpacityBox.Text = _settings.IdleOpacity.ToString("0.00");
@@ -600,14 +601,12 @@ namespace ZiZiBOOKS
             // 重複登録を防ぐため一度剥がしてから再登録
             this.MouseEnter -= Window_MouseEnter;
             this.MouseLeave -= Window_MouseLeave;
+            this.MouseMove  -= Window_MouseMove; // 前回の不要な常時監視イベントを確実に除外
 
             if (enable)
             {
                 this.MouseEnter += Window_MouseEnter;
                 this.MouseLeave += Window_MouseLeave;
-
-                // 現在すでにマウスが乗っているなら即座に最前面化
-                if (this.IsMouseOver) this.Topmost = true;
             }
             else
             {
@@ -618,58 +617,73 @@ namespace ZiZiBOOKS
 
         private void Window_MouseEnter(object sender, MouseEventArgs e)
         {
-            // 4K以上、かつホバー最前面が有効な場合のみ動作
-            if (_settings.IsHoverTopmost)
+            if (!_settings.IsHoverTopmost) return;
+
+            // マウスが「最上部のヘッダー領域（上部32px）」から侵入した場合のみ最前面化を判定
+            System.Windows.Point mousePos = e.GetPosition(this);
+            if (mousePos.Y >= 0 && mousePos.Y <= 32)
             {
-                var handle = new WindowInteropHelper(this).Handle;
-                if (handle != IntPtr.Zero && GetCurrentMonitorWorkArea(handle).Height >= 2160)
+                if (!this.Topmost)
                 {
-                    // 自ウィンドウの上に他のウィンドウが重なっているかチェック
-                    if (!IsWindowOverlappedByOthers(handle))
+                    var handle = new WindowInteropHelper(this).Handle;
+                    if (handle != IntPtr.Zero)
                     {
-                        this.Topmost = true;
+                        // タスクバーを除いた作業領域の高さ（DPI 100%時は約2100px）を確実に通すため、閾値を1200px以上とする
+                        if (GetCurrentMonitorWorkArea(handle).Height >= 1200)
+                        {
+                            // ヘッダーの上に他の通常ウィンドウが物理的に重なっていないかチェック
+                            if (!IsWindowOverlappedByOthers(handle))
+                            {
+                                this.Topmost = true;
+                            }
+                        }
                     }
                 }
             }
         }
 
-        /// <summary>
-        /// 自ウィンドウの上に物理的に重なっている（オーバーラップしている）他の可視ウィンドウがあるか判定する
-        /// </summary>
-        private bool IsWindowOverlappedByOthers(IntPtr hWnd)
+        private void Window_MouseMove(object sender, MouseEventArgs e)
         {
-            if (!GetWindowRect(hWnd, out RECT myRect)) return false;
-
-            // Zオーダーを前面（手前）に向かって走査
-            IntPtr nextWnd = GetWindow(hWnd, GW_HWNDPREV);
-            while (nextWnd != IntPtr.Zero)
+            if (_settings.IsHoverTopmost)
             {
-                // 可視状態かつ、自分自身以外の別ウィンドウである場合のみ判定
-                if (IsWindowVisible(nextWnd) && nextWnd != hWnd)
-                {
-                    if (GetWindowRect(nextWnd, out RECT otherRect))
-                    {
-                        // 領域が交差しているか判定（オーバーラップ検出）
-                        bool isIntersect = (myRect.Left < otherRect.Right && myRect.Right > otherRect.Left &&
-                                            myRect.Top < otherRect.Bottom && myRect.Bottom > otherRect.Top);
+                System.Windows.Point mousePos = e.GetPosition(this);
 
-                        if (isIntersect)
+                // マウスカーソルが本当にヘッダー領域（上部32px）の内側にある場合のみ最前面化を判定
+                if (mousePos.Y >= 0 && mousePos.Y <= 32)
+                {
+                    if (!this.Topmost)
+                    {
+                        var handle = new WindowInteropHelper(this).Handle;
+                        if (handle != IntPtr.Zero && GetCurrentMonitorWorkArea(handle).Height >= 2160)
                         {
-                            return true; // 上に重なっているウィンドウを発見
+                            // ヘッダーの上に他のウィンドウが重なっていないかチェック
+                            if (!IsWindowOverlappedByOthers(handle))
+                            {
+                                this.Topmost = true;
+                            }
                         }
                     }
                 }
-                nextWnd = GetWindow(nextWnd, GW_HWNDPREV);
+                else
+                {
+                    // カーソルがヘッダー領域外（下方のボタン領域など）にある場合は最前面を解除
+                    if (this.Topmost != _baseTopmost)
+                    {
+                        this.Topmost = _baseTopmost;
+                    }
+                }
             }
-            return false;
         }
 
         private void Window_MouseLeave(object sender, MouseEventArgs e)
         {
             if (_settings.IsHoverTopmost)
             {
-                // マウスが離れたら、常時最前面設定（_baseTopmost）の状態に戻す
-                this.Topmost = _baseTopmost;
+                // マウスがウィンドウ外に完全に離れたら、即座に本来のベース状態（常時最前面のON/OFF）に戻す
+                if (this.Topmost)
+                {
+                    this.Topmost = _baseTopmost;
+                }
             }
         }
 
@@ -838,6 +852,7 @@ namespace ZiZiBOOKS
 
                 // ディスプレイ移動時に解像度に合わせて制限値を再計算
                 UpdateWindowSizeLimit();
+                CheckMonitorResolutionForHover();
             }
         }
 
@@ -868,6 +883,73 @@ namespace ZiZiBOOKS
                 }
             }
             catch { }
+        }
+        /// <summary>
+        /// モニター解像度をチェックし、4K未満（作業領域の縦1200px未満）であればホバー最前面をグレーアウト・強制無効化する
+        /// </summary>
+        private void CheckMonitorResolutionForHover()
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle == IntPtr.Zero) return;
+
+            var screenRect = GetCurrentMonitorWorkArea(handle);
+
+            // WPFの論理ピクセルを考慮し、FHDの作業領域（縦1080以下）を確実に弾くため、1200未満を閾値とする
+            if (screenRect.Height < 1200)
+            {
+                HoverTopmostCheck.IsEnabled = false;
+                HoverTopmostCheck.ToolTip = "4K以上のモニターでのみ利用可能です。";
+                UpdateHoverTopmostEvent(false);
+            }
+            else
+            {
+                HoverTopmostCheck.IsEnabled = true;
+                HoverTopmostCheck.ToolTip = null;
+                UpdateHoverTopmostEvent(_settings.IsHoverTopmost);
+            }
+        }
+        /// <summary>
+        /// 自ウィンドウのヘッダー部分（上部）に物理的に重なっている他の可視ウィンドウがあるか判定する
+        /// </summary>
+        private bool IsWindowOverlappedByOthers(IntPtr hWnd)
+        {
+            if (!GetWindowRect(hWnd, out RECT myRect)) return false;
+
+            // DPIスケールを取得し、ヘッダーの論理高さ（32px）を物理ピクセルに変換
+            var source = PresentationSource.FromVisual(this);
+            double dpiScale = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            int headerHeightPhysical = (int)(32 * dpiScale);
+
+            // 判定用の矩形を、ウィンドウ全体から「最上部のヘッダー部分だけ」の矩形に狭める
+            RECT headerRect = myRect;
+            headerRect.Bottom = myRect.Top + headerHeightPhysical;
+
+            // Zオーダーを前面（手前）に向かって走査
+            IntPtr nextWnd = GetWindow(hWnd, GW_HWNDPREV);
+            while (nextWnd != IntPtr.Zero)
+            {
+                // 可視状態かつ、自分自身以外の別ウィンドウである場合
+                if (IsWindowVisible(nextWnd) && nextWnd != hWnd)
+                {
+                    if (GetWindowRect(nextWnd, out RECT otherRect))
+                    {
+                        // 極端に小さいウィンドウや画面外のものを除外
+                        if ((otherRect.Right - otherRect.Left) > 10 && (otherRect.Bottom - otherRect.Top) > 10)
+                        {
+                            // 自ウィンドウ全体（myRect）ではなく、ヘッダー矩形（headerRect）との交差を判定
+                            bool isIntersect = (headerRect.Left < otherRect.Right && headerRect.Right > otherRect.Left &&
+                                                headerRect.Top < otherRect.Bottom && headerRect.Bottom > otherRect.Top);
+
+                            if (isIntersect)
+                            {
+                                return true; // ヘッダーの上に重なっているウィンドウを発見
+                            }
+                        }
+                    }
+                }
+                nextWnd = GetWindow(nextWnd, GW_HWNDPREV);
+            }
+            return false;
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
