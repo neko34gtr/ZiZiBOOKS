@@ -173,7 +173,7 @@
             </Setter>
         </Style>
 
-        <!-- ===== 設定画面：ボタン（アクセント / セカンダリ） ===== -->
+        <!-- ===== 設定画面：ボタン（アクセント / セカンダリ / 成功） ===== -->
         <Style x:Key="AccentButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#6366F1"/>
             <Setter Property="Foreground" Value="White"/>
@@ -243,6 +243,33 @@
             </Setter>
         </Style>
 
+        <!-- ===== 設定画面：セグメント型タブ ===== -->
+        <Style x:Key="TabSegmentStyle" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="0,7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bg" Background="Transparent" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#6366F1"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <Border x:Name="MainBorder" Background="#EE15161F" CornerRadius="15" BorderBrush="#332A2D3D" BorderThickness="1.5">
@@ -275,62 +302,90 @@
                 <UniformGrid x:Name="MajiContainer" Columns="2" Visibility="Collapsed"/>
             </Grid>
 
-            <!-- ===== 設定パネル（SaaS風カードレイアウト） ===== -->
+            <!-- ===== 設定パネル（タブ分割・SaaS風カードレイアウト） ===== -->
             <Grid x:Name="ConfigPanel" Grid.Row="1" Background="#F5121219" Visibility="Collapsed" Width="330">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <ScrollViewer x:Name="ConfigMainScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="12,10">
-
-                            <TextBlock Text="設定" Foreground="White" FontSize="15" FontWeight="Bold" Margin="2,0,0,10"/>
-
-                            <!-- ブックマーク一覧 -->
-                            <Border Style="{StaticResource SectionCard}">
-                                <StackPanel>
-                                    <TextBlock Text="現在のブックマーク" Style="{StaticResource SectionHeader}"/>
-                                    <ScrollViewer x:Name="ConfigListScroll" MaxHeight="150" VerticalScrollBarVisibility="Auto">
-                                        <StackPanel x:Name="EditListContainer"/>
-                                    </ScrollViewer>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- 項目の追加/編集 -->
-                            <Border Style="{StaticResource SectionCard}" AllowDrop="True" PreviewDragOver="EditArea_DragOver" Drop="EditArea_Drop">
-                                <StackPanel>
-                                    <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Style="{StaticResource SectionHeader}"/>
-
-                                    <TextBlock Text="名前" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
-
-                                    <TextBlock Text="URL / 実行パス" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
-
-                                    <TextBlock Text="アイコンパス（任意）" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
-
-                                    <TextBlock Text="メモ" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}" Margin="0"/>
-
-                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                        <Button x:Name="AddUpdateBtn" Content="追加 / 更新" Style="{StaticResource SuccessButtonStyle}" Click="AddUpdate_Click"/>
-                                        <Button x:Name="CancelEditBtn" Content="キャンセル" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Visibility="Collapsed" Click="CancelEdit_Click"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- 表示設定 / 焼き付き防止 -->
+                    <!-- タイトル + タブ切替 -->
+                    <StackPanel Grid.Row="0" Margin="12,10,12,8">
+                        <TextBlock Text="設定" Foreground="White" FontSize="15" FontWeight="Bold" Margin="2,0,0,8"/>
+                        <Border Background="#1A1B26" CornerRadius="8" Padding="2">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
+                                <RadioButton x:Name="TabBookmarkBtn" Grid.Column="0" Content="ブックマーク編集" GroupName="ConfigTab" Style="{StaticResource TabSegmentStyle}" IsChecked="True" Checked="TabBookmark_Checked"/>
+                                <RadioButton x:Name="TabSystemBtn" Grid.Column="1" Content="システム設定" GroupName="ConfigTab" Style="{StaticResource TabSegmentStyle}" Checked="TabSystem_Checked"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
 
-                                <Border Grid.Column="0" Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                    <!-- タブ内容（スクロール領域） -->
+                    <ScrollViewer x:Name="ConfigMainScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="12,0,12,10">
+
+                            <!-- ブックマーク編集タブ -->
+                            <StackPanel x:Name="BookmarkTabContent" Visibility="Visible">
+
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="現在のブックマーク" Style="{StaticResource SectionHeader}"/>
+                                        <ScrollViewer x:Name="ConfigListScroll" MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                                            <StackPanel x:Name="EditListContainer"/>
+                                        </ScrollViewer>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCard}" AllowDrop="True" PreviewDragOver="EditArea_DragOver" Drop="EditArea_Drop">
+                                    <StackPanel>
+                                        <TextBlock x:Name="EditTitle" Text="項目の追加 / 編集" Style="{StaticResource SectionHeader}"/>
+
+                                        <TextBlock Text="名前" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="NameBox" Style="{StaticResource ConfigInput}"/>
+
+                                        <TextBlock Text="URL / 実行パス" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="UrlBox" Style="{StaticResource ConfigInput}"/>
+
+                                        <TextBlock Text="アイコンパス（任意）" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
+
+                                        <TextBlock Text="メモ" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}" Margin="0"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <Button x:Name="AddUpdateBtn" Content="追加 / 更新" Style="{StaticResource SuccessButtonStyle}" Click="AddUpdate_Click"/>
+                                            <Button x:Name="CancelEditBtn" Content="キャンセル" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Visibility="Collapsed" Click="CancelEdit_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="入出力" Style="{StaticResource SectionHeader}"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="エクスポート" Style="{StaticResource SecondaryButtonStyle}" Padding="0,7" Click="ExportConfig_Click"/>
+                                            <Button Grid.Column="2" Content="インポート" Style="{StaticResource SecondaryButtonStyle}" Padding="0,7" Click="ImportConfig_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+
+                            <!-- システム設定タブ -->
+                            <StackPanel x:Name="SystemTabContent" Visibility="Collapsed">
+
+                                <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <TextBlock Text="表示設定" Style="{StaticResource SectionHeader}"/>
                                         <CheckBox x:Name="MajiModeCheck" Content="タイル表示" Style="{StaticResource ToggleSwitchStyle}" Checked="MajiModeCheck_Changed" Unchecked="MajiModeCheck_Changed"/>
@@ -343,7 +398,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="2" Style="{StaticResource SectionCard}" Margin="0,0,0,8">
+                                <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <TextBlock Text="焼き付き防止" Foreground="#FBBF24" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                         <TextBlock Text="放置秒数" Style="{StaticResource FieldLabel}"/>
@@ -353,24 +408,15 @@
                                         <Button Content="設定保存" Style="{StaticResource SuccessButtonStyle}" HorizontalAlignment="Right" Padding="10,5" Click="SaveSettings_Click"/>
                                     </StackPanel>
                                 </Border>
-                            </Grid>
 
-                        </StackPanel>
+                            </StackPanel>
+
+                        </Grid>
                     </ScrollViewer>
 
-                    <Border Grid.Row="1" Background="#F5121219" BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0" Padding="12,10">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Content="エクスポート" Style="{StaticResource SecondaryButtonStyle}" Padding="0,7" Click="ExportConfig_Click"/>
-                                <Button Grid.Column="2" Content="インポート" Style="{StaticResource SecondaryButtonStyle}" Padding="0,7" Click="ImportConfig_Click"/>
-                            </Grid>
-                            <Button Content="設定を閉じる" Style="{StaticResource AccentButtonStyle}" Padding="0,8" HorizontalAlignment="Stretch" Click="ConfigButton_Click"/>
-                        </StackPanel>
+                    <!-- 常に表示される閉じるボタン -->
+                    <Border Grid.Row="2" Background="#F5121219" BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0" Padding="12,10">
+                        <Button Content="設定を閉じる" Style="{StaticResource AccentButtonStyle}" Padding="0,8" HorizontalAlignment="Stretch" Click="ConfigButton_Click"/>
                     </Border>
                 </Grid>
             </Grid>

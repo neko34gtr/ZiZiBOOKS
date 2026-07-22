@@ -723,12 +723,33 @@ namespace ZiZiBOOKS
             }
         }
 
+        // [ADD] タブ切替：ブックマーク編集
+        private void TabBookmark_Checked(object sender, RoutedEventArgs e)
+        {
+            if (BookmarkTabContent == null || SystemTabContent == null) return;
+            BookmarkTabContent.Visibility = Visibility.Visible;
+            SystemTabContent.Visibility = Visibility.Collapsed;
+            if (_isInitialized) UpdateWindowSizeLimit();
+        }
+
+        // [ADD] タブ切替：システム設定
+        private void TabSystem_Checked(object sender, RoutedEventArgs e)
+        {
+            if (BookmarkTabContent == null || SystemTabContent == null) return;
+            BookmarkTabContent.Visibility = Visibility.Collapsed;
+            SystemTabContent.Visibility = Visibility.Visible;
+            if (_isInitialized) UpdateWindowSizeLimit();
+        }
+
         private void ConfigButton_Click(object sender, RoutedEventArgs e)
         {
             if (ConfigPanel.Visibility == Visibility.Collapsed)
             {
                 _originalLeft = this.Left;
                 _originalTop = this.Top;
+
+                // [ADD] 開く際は常にメインタブ（ブックマーク編集）を表示
+                TabBookmarkBtn.IsChecked = true;
 
                 ConfigPanel.Visibility = Visibility.Visible;
                 SemiContainer.Visibility = Visibility.Collapsed;
@@ -916,6 +937,10 @@ namespace ZiZiBOOKS
                 if (ConfigPanel.Visibility == Visibility.Visible)
                 {
                     ConfigListScroll.MaxHeight = screenRect.Height * 0.2;
+
+                    // [ADD] タブ+タイトル(約90px)と閉じるボタン(約60px)を差し引き、
+                    // 設定パネル全体が必ず画面内（作業領域）に収まるよう上限を設定
+                    ConfigMainScroll.MaxHeight = Math.Max(150, screenRect.Height - 150);
                 }
             }
             catch { }
