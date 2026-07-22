@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
+using System.IO;
 
 namespace ZiZiBOOKS
 {
@@ -46,6 +47,10 @@ namespace ZiZiBOOKS
             InitializeComponent();
             _settings = ConfigManager.LoadSettings();
             _dict = ConfigManager.LoadDict();
+            if (FixZoomPaths())
+            {
+                ConfigManager.SaveDict(_dict);
+            }
 
             // [ADD] シャットダウンイベントの登録
             if (System.Windows.Application.Current != null)
@@ -63,6 +68,37 @@ namespace ZiZiBOOKS
 
             // 焼き付き防止用の監視ループ
             CompositionTarget.Rendering += OnRendering;
+        }
+
+        // [ADD] zoom.exeの実パスを探索し、Url/IconPathを再定義する。変更があった場合のみtrueを返す
+        private bool FixZoomPaths()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string[] candidates =
+            {
+                @"C:\Program Files\Zoom\bin\zoom.exe",
+                Path.Combine(appData, "Zoom", "bin", "zoom.exe"),
+                Path.Combine(appData, "Zoom", "bin_00", "zoom.exe"),
+            };
+
+            string? foundPath = candidates.FirstOrDefault(File.Exists);
+            if (foundPath == null) return false;
+
+            bool changed = false;
+            foreach (var item in _dict.Items)
+            {
+                bool isZoom =
+                    string.Equals(Path.GetFileName(item.Url), "zoom.exe", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Path.GetFileName(item.IconPath), "zoom.exe", StringComparison.OrdinalIgnoreCase);
+
+                if (isZoom && (item.Url != foundPath || item.IconPath != foundPath))
+                {
+                    item.Url = foundPath;
+                    item.IconPath = foundPath;
+                    changed = true;
+                }
+            }
+            return changed;
         }
 
         // [ADD] 保存処理のメソッド抽出
@@ -601,7 +637,7 @@ namespace ZiZiBOOKS
             // 重複登録を防ぐため一度剥がしてから再登録
             this.MouseEnter -= Window_MouseEnter;
             this.MouseLeave -= Window_MouseLeave;
-            this.MouseMove  -= Window_MouseMove; // 前回の不要な常時監視イベントを確実に除外
+            this.MouseMove -= Window_MouseMove; // 前回の不要な常時監視イベントを確実に除外
 
             if (enable)
             {
