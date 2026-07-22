@@ -70,6 +70,21 @@ namespace ZiZiBOOKS
             CompositionTarget.Rendering += OnRendering;
         }
 
+        // [MOD] Zoom関連ファイルかどうかを判定する
+        // ・"zoom.exe"（大文字小文字問わず）
+        // ・"Zoom Workplace.lnk" のようなデスクトップショートカット（先頭が"zoom"で始まる）
+        private static bool IsZoomFile(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            string nameNoExt = Path.GetFileNameWithoutExtension(path);
+            if (string.IsNullOrEmpty(nameNoExt)) return false;
+
+            return nameNoExt.Equals("zoom", StringComparison.OrdinalIgnoreCase) ||
+                   nameNoExt.StartsWith("zoom ", StringComparison.OrdinalIgnoreCase) ||
+                   nameNoExt.StartsWith("zoom_", StringComparison.OrdinalIgnoreCase) ||
+                   nameNoExt.StartsWith("zoom-", StringComparison.OrdinalIgnoreCase);
+        }
+
         // [ADD] zoom.exeの実パスを探索し、Url/IconPathを再定義する。変更があった場合のみtrueを返す
         private bool FixZoomPaths()
         {
@@ -87,9 +102,7 @@ namespace ZiZiBOOKS
             bool changed = false;
             foreach (var item in _dict.Items)
             {
-                bool isZoom =
-                    string.Equals(Path.GetFileName(item.Url), "zoom.exe", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(Path.GetFileName(item.IconPath), "zoom.exe", StringComparison.OrdinalIgnoreCase);
+                bool isZoom = IsZoomFile(item.Url) || IsZoomFile(item.IconPath);
 
                 if (isZoom && (item.Url != foundPath || item.IconPath != foundPath))
                 {
@@ -532,6 +545,10 @@ namespace ZiZiBOOKS
             }
 
             CancelEdit_Click(null!, null!);
+
+            // [ADD] 追加/更新した項目がZoom関連なら即座にパスを補正
+            FixZoomPaths();
+
             RefreshUI();
             ConfigManager.SaveDict(_dict);
         }
@@ -914,6 +931,10 @@ namespace ZiZiBOOKS
                 if (imported != null)
                 {
                     _dict = imported;
+
+                    // [ADD] インポートしたdictにZoom関連項目が含まれる場合も補正
+                    FixZoomPaths();
+
                     RefreshUI();
                     ConfigManager.SaveDict(_dict);
                 }
