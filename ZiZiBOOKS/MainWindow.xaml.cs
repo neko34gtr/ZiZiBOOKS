@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.IO;
+using System.Text;
 
 namespace ZiZiBOOKS
 {
@@ -47,7 +48,7 @@ namespace ZiZiBOOKS
             InitializeComponent();
             _settings = ConfigManager.LoadSettings();
             _dict = ConfigManager.LoadDict();
-            if (FixZoomPaths())
+            if (RunAutoFixups())
             {
                 ConfigManager.SaveDict(_dict);
             }
@@ -68,6 +69,126 @@ namespace ZiZiBOOKS
 
             // 焼き付き防止用の監視ループ
             CompositionTarget.Rendering += OnRendering;
+        }
+
+        // ===== [ADD] .lnkショートカットの実体解決 (IShellLinkW) =====
+        [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+        private class ShellLinkCoClass { }
+
+        [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+        private interface IShellLinkW
+        {
+            int GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cchMaxPath, IntPtr pfd, uint fFlags);
+            int GetIDList(out IntPtr ppidl);
+            int SetIDList(IntPtr pidl);
+            int GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cchMaxName);
+            int SetDescription(string pszName);
+            int GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cchMaxPath);
+            int SetWorkingDirectory(string pszDir);
+            int GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cchMaxPath);
+            int SetArguments(string pszArgs);
+            int GetHotkey(out short pwHotkey);
+            int SetHotkey(short wHotkey);
+            int GetShowCmd(out int piShowCmd);
+            int SetShowCmd(int iShowCmd);
+            int GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+            int SetIconLocation(string pszIconPath, int iIcon);
+            int SetRelativePath(string pszPathRel, uint dwReserved);
+            int Resolve(IntPtr hwnd, uint fFlags);
+            int SetPath(string pszFile);
+        }
+
+        [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("0000010b-0000-0000-C000-000000000046")]
+        private interface IPersistFile
+        {
+            void GetClassID(out Guid pClassID);
+            int IsDirty();
+            void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, uint dwMode);
+            void Save([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, [MarshalAs(UnmanagedType.Bool)] bool fRemember);
+            void SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string pszFileName);
+            void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string ppszFileName);
+        }
+
+        // ショートカット(.lnk)から実体パス・起動引数・カスタムアイコンを取得する
+        private static bool TryResolveShortcut(string lnkPath, out string targetPath, out string arguments, out string? iconPath)
+        {
+            targetPath = ""; arguments = ""; iconPath = null;
+            try
+            {
+                var link = (IShellLinkW)new ShellLinkCoClass();
+                ((IPersistFile)link).Load(lnkPath, 0); // STGM_READ
+
+                var sbPath = new StringBuilder(260);
+                link.GetPath(sbPath, sbPath.Capacity, IntPtr.Zero, 0);
+                targetPath = sbPath.ToString();
+
+                var sbArgs = new StringBuilder(1024);
+                link.GetArguments(sbArgs, sbArgs.Capacity);
+                arguments = sbArgs.ToString();
+
+                var sbIcon = new StringBuilder(260);
+                link.GetIconLocation(sbIcon, sbIcon.Capacity, out int idx);
+                string iconRaw = sbIcon.ToString();
+                // アイコンリソースが単体ファイル(idx==0)かつ実在する場合のみカスタムアイコンとして採用
+                if (idx == 0 && !string.IsNullOrWhiteSpace(iconRaw) && File.Exists(iconRaw))
+                {
+                    iconPath = iconRaw;
+                }
+
+                Marshal.ReleaseComObject(link);
+                return !string.IsNullOrWhiteSpace(targetPath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // [ADD] .lnkショートカット項目を実体(フォルダ/アプリ)へ解決する。変更があった場合のみtrueを返す
+        // ・フォルダが実体の場合：IconPathを空にし、フォルダアイコンが自動表示されるようにする
+        // ・アプリが実体の場合：Urlを実行ファイルへ、起動引数をArgumentsへ格納する
+        private bool ResolveShortcutsAndFolders()
+        {
+            bool changed = false;
+            foreach (var item in _dict.Items)
+            {
+                // Zoomは専用ロジック(FixZoomPaths)側で処理するため対象外
+                if (IsZoomFile(item.Url) || IsZoomFile(item.IconPath)) continue;
+
+                if (string.IsNullOrWhiteSpace(item.Url) ||
+                    !item.Url.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) ||
+                    !File.Exists(item.Url))
+                {
+                    continue;
+                }
+
+                if (!TryResolveShortcut(item.Url, out string target, out string args, out string? icon)) continue;
+                if (string.IsNullOrWhiteSpace(target)) continue;
+
+                bool targetIsDir = Directory.Exists(target);
+                bool targetIsFile = File.Exists(target);
+                if (!targetIsDir && !targetIsFile) continue; // 解決先が存在しない壊れたショートカットは変更しない
+
+                string newIconPath = targetIsDir ? "" : (icon ?? "");
+                string newArgs = targetIsDir ? "" : args;
+
+                if (item.Url != target || item.IconPath != newIconPath || item.Arguments != newArgs)
+                {
+                    item.Url = target;
+                    item.IconPath = newIconPath;
+                    item.Arguments = newArgs;
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        // [ADD] Zoom補正とショートカット解決をまとめて実行する
+        private bool RunAutoFixups()
+        {
+            bool changed = ResolveShortcutsAndFolders();
+            if (FixZoomPaths()) changed = true;
+            return changed;
         }
 
         // [MOD] Zoom関連ファイルかどうかを判定する
@@ -241,7 +362,8 @@ namespace ZiZiBOOKS
                 {
                     Content = item.Name,
                     Tag = icon,
-                    DataContext = item.Url,
+                    // [MOD] 起動引数を渡せるよう、URL文字列ではなくBookmarkItem自体を保持
+                    DataContext = item,
                     Style = (Style)FindResource("SemiModeStyle")
                 };
 
@@ -257,7 +379,7 @@ namespace ZiZiBOOKS
                 {
                     Content = item.Name,
                     Tag = item.Url,
-                    DataContext = item.Url,
+                    DataContext = item,
                     Style = (Style)FindResource("ModernTileButton")
                 };
                 majiBtn.FontSize = _settings.FontSize;
@@ -467,6 +589,7 @@ namespace ZiZiBOOKS
             NameBox.Text = item.Name;
             UrlBox.Text = item.Url;
             IconPathBox.Text = item.IconPath;
+            ArgumentsBox.Text = item.Arguments;
             MemoBox.Text = item.Memo;
             EditTitle.Text = "項目を編集モード";
             EditTitle.Foreground = System.Windows.Media.Brushes.Yellow;
@@ -509,7 +632,11 @@ namespace ZiZiBOOKS
                     {
                         UrlBox.Text = files[0];
                         NameBox.Text = System.IO.Path.GetFileNameWithoutExtension(files[0]);
-                        IconPathBox.Text = files[0];
+                        // [MOD] フォルダの場合はIconPathを空のままにし、フォルダアイコンが自動表示されるようにする
+                        if (System.IO.File.Exists(files[0]))
+                        {
+                            IconPathBox.Text = files[0];
+                        }
                     }
                 }
             }
@@ -523,6 +650,7 @@ namespace ZiZiBOOKS
             NameBox.Clear();
             UrlBox.Clear();
             IconPathBox.Clear();
+            ArgumentsBox.Clear();
             MemoBox.Clear();
             EditTitle.Text = "項目の追加 / 編集";
             EditTitle.Foreground = System.Windows.Media.Brushes.Cyan;
@@ -532,7 +660,7 @@ namespace ZiZiBOOKS
         private void AddUpdate_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text) || string.IsNullOrWhiteSpace(UrlBox.Text)) return;
-            var newItem = new BookmarkItem { Name = NameBox.Text, Url = UrlBox.Text, IconPath = IconPathBox.Text, Memo = MemoBox.Text };
+            var newItem = new BookmarkItem { Name = NameBox.Text, Url = UrlBox.Text, IconPath = IconPathBox.Text, Memo = MemoBox.Text, Arguments = ArgumentsBox.Text };
 
             if (_editingIndex >= 0)
             {
@@ -546,8 +674,8 @@ namespace ZiZiBOOKS
 
             CancelEdit_Click(null!, null!);
 
-            // [ADD] 追加/更新した項目がZoom関連なら即座にパスを補正
-            FixZoomPaths();
+            // [MOD] 追加/更新した項目がショートカット/Zoom関連なら即座に実体へ補正
+            RunAutoFixups();
 
             RefreshUI();
             ConfigManager.SaveDict(_dict);
@@ -610,15 +738,28 @@ namespace ZiZiBOOKS
 
         private void Launch_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button b && b.DataContext is string u)
+            // [MOD] URL文字列ではなくBookmarkItem全体から起動情報を取得（起動引数対応）
+            if (sender is System.Windows.Controls.Button b && b.DataContext is BookmarkItem item)
             {
+                string u = item.Url;
                 _lastActivityTime = DateTime.Now;
                 try
                 {
                     var psi = new ProcessStartInfo { FileName = u, UseShellExecute = true };
+
+                    if (!string.IsNullOrWhiteSpace(item.Arguments))
+                    {
+                        psi.Arguments = item.Arguments;
+                    }
+
                     if (System.IO.File.Exists(u))
                     {
                         psi.WorkingDirectory = System.IO.Path.GetDirectoryName(u);
+                    }
+                    else if (System.IO.Directory.Exists(u))
+                    {
+                        // [ADD] フォルダの場合は自身を作業ディレクトリとする
+                        psi.WorkingDirectory = u;
                     }
                     Process.Start(psi);
                 }
@@ -637,7 +778,11 @@ namespace ZiZiBOOKS
                 if (path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     return new BitmapImage(new Uri($"https://www.google.com/s2/favicons?domain={path}&sz=64"));
 
-                if (!System.IO.File.Exists(path)) return null;
+                // [MOD] フォルダはFile.Existsではfalseになるため、Directory.Existsも判定に追加
+                // （これまでフォルダ単体パスの項目はアイコンが一切表示されなかった）
+                bool isFile = System.IO.File.Exists(path);
+                bool isDir = System.IO.Directory.Exists(path);
+                if (!isFile && !isDir) return null;
 
                 // Win32 API SHGetFileInfo を使用して、Drawing.Icon に依存せずアイコンを抽出
                 SHFILEINFO shfi = new SHFILEINFO();
@@ -932,8 +1077,8 @@ namespace ZiZiBOOKS
                 {
                     _dict = imported;
 
-                    // [ADD] インポートしたdictにZoom関連項目が含まれる場合も補正
-                    FixZoomPaths();
+                    // [MOD] インポートしたdictにショートカット/Zoom関連項目が含まれる場合も補正
+                    RunAutoFixups();
 
                     RefreshUI();
                     ConfigManager.SaveDict(_dict);

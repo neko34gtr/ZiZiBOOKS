@@ -355,6 +355,9 @@
                                         <TextBlock Text="アイコンパス（任意）" Style="{StaticResource FieldLabel}"/>
                                         <TextBox x:Name="IconPathBox" Style="{StaticResource ConfigInput}"/>
 
+                                        <TextBlock Text="起動引数（任意）" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="ArgumentsBox" Style="{StaticResource ConfigInput}"/>
+
                                         <TextBlock Text="メモ" Style="{StaticResource FieldLabel}"/>
                                         <TextBox x:Name="MemoBox" Style="{StaticResource ConfigInput}" Margin="0"/>
 

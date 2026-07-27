@@ -33,6 +33,8 @@ namespace ZiZiBOOKS
         public string Url { get; set; } = "";
         public string Memo { get; set; } = "";
         public string IconPath { get; set; } = string.Empty;
+        // [ADD] ショートカット解決時に取得した起動引数（アプリケーションの場合のみ使用）
+        public string Arguments { get; set; } = "";
     }
 
     public static class ConfigManager
@@ -59,7 +61,7 @@ namespace ZiZiBOOKS
             catch { }
             return new AppSettings();
         }
-        
+
         public static void SaveSettings(AppSettings settings)
         {
             try
