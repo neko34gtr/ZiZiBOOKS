@@ -412,6 +412,13 @@
                                     </StackPanel>
                                 </Border>
 
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="起動" Style="{StaticResource SectionHeader}"/>
+                                        <CheckBox x:Name="AutoStartCheck" Content="Windows起動時に自動起動" Style="{StaticResource ToggleSwitchStyle}" Checked="AutoStartCheck_Changed" Unchecked="AutoStartCheck_Changed"/>
+                                    </StackPanel>
+                                </Border>
+
                             </StackPanel>
 
                         </Grid>

@@ -13,6 +13,11 @@ using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.IO;
 using System.Text;
+// [ADD] 常駐化(NotifyIcon)対応。裸のusingにせずエイリアス限定で導入することで、
+// 既存の System.Windows 系の裸型名（Button/MouseEventArgs/KeyEventArgs 等）との
+// CS0104 あいまい参照を一切発生させない
+using WinForms = System.Windows.Forms;
+using Drawing = System.Drawing;
 
 namespace ZiZiBOOKS
 {
@@ -22,6 +27,10 @@ namespace ZiZiBOOKS
         private BookmarkDict _dict;
         private bool _isInitialized = false;
         private int _editingIndex = -1;
+
+        // [ADD] 常駐化(システムトレイ)関連
+        private WinForms.NotifyIcon? _trayIcon;
+        private bool _isExiting = false;
 
         // 設定画面用ドラッグ変数
         private Border? _draggedItem = null;
@@ -58,6 +67,9 @@ namespace ZiZiBOOKS
             {
                 System.Windows.Application.Current.SessionEnding += (s, e) => FinalSave();
             }
+
+            // [ADD] 常駐化：システムトレイアイコンを初期化
+            InitializeTrayIcon();
 
             // 座標の補正ロジック
             CheckAndFixWindowPosition();
@@ -700,6 +712,9 @@ namespace ZiZiBOOKS
             IdleSecondsBox.Text = _settings.IdleSeconds.ToString();
             IdleOpacityBox.Text = _settings.IdleOpacity.ToString("0.00");
 
+            // [ADD] Windows起動時の自動起動：現在のレジストリ登録状況を反映
+            AutoStartCheck.IsChecked = IsAutoStartEnabled();
+
             UpdateUIMode(_settings.IsMajiMode);
         }
 
@@ -1210,10 +1225,114 @@ namespace ZiZiBOOKS
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            // [MOD] 常駐化：ヘッダーの✕や通常のClose()では終了させず、トレイに格納する
+            if (!_isExiting)
+            {
+                e.Cancel = true;
+                this.Hide();
+                return;
+            }
+
             //既存の Window_Closing を FinalSave 呼び出しに
             FinalSave();
+
+            _trayIcon?.Dispose();
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
+        // [MOD] 常駐化：ヘッダー✕は完全終了ではなくトレイへ格納する（this.Close()経由でWindow_Closingへ）
+        private void CloseButton_Click(object sender, RoutedEventArgs e) => this.Close();
+
+        // [ADD] 実際にアプリケーションを終了する（トレイメニューの「終了」専用）
+        private void ExitApplication()
+        {
+            _isExiting = true;
+            this.Close();
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        // ===== [ADD] 常駐化：システムトレイアイコン =====
+        private void InitializeTrayIcon()
+        {
+            try
+            {
+                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                Drawing.Icon? appIcon = !string.IsNullOrEmpty(exePath) ? Drawing.Icon.ExtractAssociatedIcon(exePath) : null;
+
+                var menu = new WinForms.ContextMenuStrip();
+                menu.Items.Add("表示 / 非表示", null, (s, e) => ToggleWindowVisibility());
+                menu.Items.Add(new WinForms.ToolStripSeparator());
+                menu.Items.Add("終了", null, (s, e) => ExitApplication());
+
+                _trayIcon = new WinForms.NotifyIcon
+                {
+                    Icon = appIcon ?? Drawing.SystemIcons.Application,
+                    Text = "ZiZiBOOKS",
+                    Visible = true,
+                    ContextMenuStrip = menu
+                };
+                _trayIcon.MouseClick += (s, e) =>
+                {
+                    if (e.Button == WinForms.MouseButtons.Left) ToggleWindowVisibility();
+                };
+            }
+            catch { }
+        }
+
+        private void ToggleWindowVisibility()
+        {
+            if (this.IsVisible)
+            {
+                this.Hide();
+            }
+            else
+            {
+                this.Show();
+                this.WindowState = WindowState.Normal;
+                this.Activate();
+            }
+        }
+
+        // ===== [ADD] Windows起動時の自動起動（レジストリ Run キー） =====
+        private const string AutoStartRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+        private const string AutoStartValueName = "ZiZiBOOKS";
+
+        private bool IsAutoStartEnabled()
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(AutoStartRegistryPath, false);
+                return key?.GetValue(AutoStartValueName) != null;
+            }
+            catch { return false; }
+        }
+
+        private void SetAutoStart(bool enabled)
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(AutoStartRegistryPath, true);
+                if (key == null) return;
+
+                if (enabled)
+                {
+                    string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                    if (!string.IsNullOrEmpty(exePath))
+                    {
+                        key.SetValue(AutoStartValueName, $"\"{exePath}\"");
+                    }
+                }
+                else if (key.GetValue(AutoStartValueName) != null)
+                {
+                    key.DeleteValue(AutoStartValueName, false);
+                }
+            }
+            catch { }
+        }
+
+        private void AutoStartCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!_isInitialized) return;
+            SetAutoStart(AutoStartCheck.IsChecked == true);
+        }
     }
 }

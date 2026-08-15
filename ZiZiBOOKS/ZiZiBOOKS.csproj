@@ -1,22 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <ApplicationIcon>ZiZiBOOKS.ico</ApplicationIcon>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+		<UseWindowsForms>true</UseWindowsForms>
+		<ApplicationIcon>ZiZiBOOKS.ico</ApplicationIcon>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="ZiZiBOOKS.ico">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
+	<ItemGroup>
+		<Content Include="ZiZiBOOKS.ico">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.Drawing.Common" Version="10.0.7" />
+	</ItemGroup>
+
+	<!-- [ADD] UseWindowsForms=true にすると SDK が System.Windows.Forms を
+       暗黙のglobal usingとして全ファイルへ自動注入し、MouseEventArgs/OpenFileDialog/
+       SaveFileDialog 等がSystem.Windows系とあいまいになるため、明示的に除去する
+       （System.Windows.Forms自体は using WinForms = System.Windows.Forms; のエイリアスで個別に使用） -->
+	<ItemGroup>
+		<Using Remove="System.Windows.Forms" />
+	</ItemGroup>
 
 </Project>
