@@ -1278,6 +1278,14 @@ namespace ZiZiBOOKS
             catch { }
         }
 
+        // [ADD] 二重起動防止：別プロセスから「表示」を要求された際に呼ばれる
+        public void RequestShow()
+        {
+            this.Show();
+            this.WindowState = WindowState.Normal;
+            this.Activate();
+        }
+
         private void ToggleWindowVisibility()
         {
             if (this.IsVisible)
