@@ -5,7 +5,8 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" WindowStartupLocation="Manual" 
         SizeToContent="WidthAndHeight"
-        Closing="Window_Closing" LocationChanged="Window_LocationChanged">
+        Closing="Window_Closing" LocationChanged="Window_LocationChanged"
+        ShowActivated="False">
 
     <Window.Resources>
 
